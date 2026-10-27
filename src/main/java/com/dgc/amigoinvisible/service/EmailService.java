@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -29,8 +30,6 @@ public class EmailService {
      * the remaining sends. After all individual emails, sends an admin
      * summary to the configured sender account.
      */
-import org.springframework.scheduling.annotation.Async;
-
     @Async
     public void sendAssignmentEmails(List<Assignment> assignments) {
         String from     = amigoProperties.getMail().getFrom();
