@@ -29,6 +29,9 @@ public class EmailService {
      * the remaining sends. After all individual emails, sends an admin
      * summary to the configured sender account.
      */
+import org.springframework.scheduling.annotation.Async;
+
+    @Async
     public void sendAssignmentEmails(List<Assignment> assignments) {
         String from     = amigoProperties.getMail().getFrom();
         String fromName = amigoProperties.getMail().getFromName();
