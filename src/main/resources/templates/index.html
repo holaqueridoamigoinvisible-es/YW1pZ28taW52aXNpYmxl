@@ -38,6 +38,7 @@
                    th:field="*{participants[__${iStat.index}__].email}"
                    placeholder="email@ejemplo.com"/>
             <div class="invalid-feedback">Introduce un email válido.</div>
+            <div class="email-suggestion"></div>
           </td>
         </tr>
       </tbody>
@@ -70,10 +71,48 @@
 
   </form>
 
+  <script src="https://cdn.jsdelivr.net/npm/mailcheck@1.1.2/src/mailcheck.min.js"></script>
   <script>
     // Initialise counters from server-rendered list sizes
     var pCount = /*[[${form.participants.size()}]]*/ 5;
     var eCount = /*[[${form.exclusions.size()}]]*/ 1;
+
+    // ── Mailcheck: domain typo suggestions ──────────────────────────────────
+    function attachMailcheck(input) {
+      input.addEventListener('blur', function () {
+        var val   = input.value.trim();
+        var hint  = input.parentNode.querySelector('.email-suggestion');
+        if (!hint) return;
+
+        if (!val) { hint.style.display = 'none'; return; }
+
+        Mailcheck.run({
+          email: val,
+          suggested: function (suggestion) {
+            hint.innerHTML = '¿Quisiste decir <a href="#" class="suggestion-link">'
+                           + suggestion.full + '</a>?';
+            hint.style.display = '';
+            hint.querySelector('.suggestion-link').addEventListener('click', function (e) {
+              e.preventDefault();
+              input.value = suggestion.full;
+              hint.style.display = 'none';
+              if (EMAIL_REGEX.test(suggestion.full)) {
+                input.classList.remove('is-invalid');
+              }
+            });
+          },
+          empty: function () {
+            hint.style.display = 'none';
+          }
+        });
+      });
+
+      // Hide suggestion while the user edits
+      input.addEventListener('input', function () {
+        var hint = input.parentNode.querySelector('.email-suggestion');
+        if (hint) hint.style.display = 'none';
+      });
+    }
 
     function addParticipant() {
       var tbody = document.getElementById('participantsBody');
@@ -83,8 +122,10 @@
         '<td>' +
           '<input type="email" class="form-control" name="participants[' + pCount + '].email" placeholder="email@ejemplo.com"/>' +
           '<div class="invalid-feedback">Introduce un email válido.</div>' +
+          '<div class="email-suggestion"></div>' +
         '</td>';
       tbody.appendChild(row);
+      attachMailcheck(row.querySelector('input[type="email"]'));
       pCount++;
     }
 
@@ -134,6 +175,9 @@
         }
       }
     });
+
+    // Attach mailcheck to all server-rendered email inputs
+    document.querySelectorAll('input[type="email"]').forEach(attachMailcheck);
   </script>
 </body>
 </html>
