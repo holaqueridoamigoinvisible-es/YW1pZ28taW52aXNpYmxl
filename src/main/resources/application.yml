@@ -1,7 +1,7 @@
 spring:
   batch:
     job:
-      enabled: false  # web version: job is triggered via UI, not on startup
+      enabled: false
     jdbc:
       initialize-schema: always
   datasource:
@@ -9,17 +9,6 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
-  mail:
-    host: in-v3.mailjet.com
-    port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
 
 amigo:
   participants:
@@ -28,7 +17,7 @@ amigo:
     file: file:exclusions.csv
   mail:
     from: ${MAIL_USERNAME}
-    from-name: "Amigo invisible 🎅"
+    from-name: "Amigo invisible \uD83C\uDF85"
 
 server:
   port: ${PORT:8080}
