@@ -19,5 +19,9 @@ amigo:
     from: ${MAIL_USERNAME}
     from-name: "Amigo invisible \uD83C\uDF85"
 
+mailjet:
+  api-key: ${MAIL_USERNAME}
+  secret-key: ${MAIL_PASSWORD}
+
 server:
   port: ${PORT:8080}

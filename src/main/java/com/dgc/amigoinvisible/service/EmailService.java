@@ -28,8 +28,8 @@ public class EmailService {
     private final AmigoProperties amigoProperties;
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public EmailService(@Value("${spring.mail.username}") String apiKey,
-                        @Value("${spring.mail.password}") String secretKey,
+    public EmailService(@Value("${mailjet.api-key}") String apiKey,
+                        @Value("${mailjet.secret-key}") String secretKey,
                         AmigoProperties amigoProperties) {
         this.authorization = "Basic " +
                 Base64.getEncoder().encodeToString((apiKey + ":" + secretKey).getBytes());
