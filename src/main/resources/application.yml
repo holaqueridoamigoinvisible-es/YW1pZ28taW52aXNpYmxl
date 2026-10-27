@@ -17,7 +17,11 @@ amigo:
     file: file:exclusions.csv
   mail:
     from: ${MAIL_USERNAME}
-    from-name: "Amigo invisible \uD83C\uDF85"
+    from-name: "Amigo invisible"
+
+mailjet:
+  api-key: ${MAIL_USERNAME}
+  secret-key: ${MAIL_PASSWORD}
 
 server:
   port: ${PORT:8080}
