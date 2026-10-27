@@ -19,7 +19,7 @@
 
   <div th:if="${error}" class="alert alert-danger fw-bold" th:text="${error}"></div>
 
-  <form th:action="@{/draw}" th:object="${form}" method="post">
+  <form th:action="@{/draw}" th:object="${form}" method="post" novalidate>
 
     <!-- ── Participants ── -->
     <h2 class="h4 mt-4">Participantes</h2>
