@@ -58,6 +58,24 @@ public class DrawController {
 
         log.info("Participants: {}, Exclusions: {}", persons.size(), exclusions.size());
 
+        // Validate email format for non-empty participants
+        String emailRegex = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]{2,}$";
+        List<String> invalidEmails = form.getParticipants().stream()
+                .filter(p -> p.getName() != null && !p.getName().isBlank()
+                          && p.getEmail() != null && !p.getEmail().isBlank())
+                .map(p -> p.getEmail().trim())
+                .filter(email -> !email.matches(emailRegex))
+                .collect(Collectors.toList());
+
+        if (!invalidEmails.isEmpty()) {
+            log.warn("Invalid emails found: {}", invalidEmails);
+            model.addAttribute("form", form);
+            model.addAttribute("title", "Amigo Invisible");
+            model.addAttribute("error",
+                    "Los siguientes emails no son válidos: " + String.join(", ", invalidEmails));
+            return "index";
+        }
+
         if (persons.size() < 2) {
             log.warn("Not enough participants: {}", persons.size());
             model.addAttribute("form", form);

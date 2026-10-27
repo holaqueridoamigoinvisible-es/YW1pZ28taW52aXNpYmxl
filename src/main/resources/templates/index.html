@@ -30,9 +30,12 @@
           <td><input type="text" class="form-control"
                      th:field="*{participants[__${iStat.index}__].name}"
                      placeholder="Nombre"/></td>
-          <td><input type="email" class="form-control"
-                     th:field="*{participants[__${iStat.index}__].email}"
-                     placeholder="email@ejemplo.com"/></td>
+          <td>
+            <input type="email" class="form-control"
+                   th:field="*{participants[__${iStat.index}__].email}"
+                   placeholder="email@ejemplo.com"/>
+            <div class="invalid-feedback">Introduce un email válido.</div>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -74,7 +77,10 @@
       var row = document.createElement('tr');
       row.innerHTML =
         '<td><input type="text" class="form-control" name="participants[' + pCount + '].name" placeholder="Nombre"/></td>' +
-        '<td><input type="email" class="form-control" name="participants[' + pCount + '].email" placeholder="email@ejemplo.com"/></td>';
+        '<td>' +
+          '<input type="email" class="form-control" name="participants[' + pCount + '].email" placeholder="email@ejemplo.com"/>' +
+          '<div class="invalid-feedback">Introduce un email válido.</div>' +
+        '</td>';
       tbody.appendChild(row);
       pCount++;
     }
@@ -88,6 +94,43 @@
       tbody.appendChild(row);
       eCount++;
     }
+
+    // Client-side email validation on submit
+    var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+    document.querySelector('form').addEventListener('submit', function (e) {
+      var allValid = true;
+
+      document.querySelectorAll('input[type="email"]').forEach(function (input) {
+        // Reset previous state
+        input.classList.remove('is-invalid');
+
+        var value = input.value.trim();
+        if (value !== '' && !EMAIL_REGEX.test(value)) {
+          input.classList.add('is-invalid');
+          allValid = false;
+        }
+      });
+
+      if (!allValid) {
+        e.preventDefault();
+        // Scroll to first invalid field
+        var first = document.querySelector('input.is-invalid');
+        if (first) {
+          first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          first.focus();
+        }
+      }
+    });
+
+    // Clear invalid state as user types
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.type === 'email') {
+        if (EMAIL_REGEX.test(e.target.value.trim())) {
+          e.target.classList.remove('is-invalid');
+        }
+      }
+    });
   </script>
 </body>
 </html>
