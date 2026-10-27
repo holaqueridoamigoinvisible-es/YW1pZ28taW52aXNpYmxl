@@ -1,4 +1,4 @@
-﻿package com.dgc.amigoinvisible.service;
+package com.dgc.amigoinvisible.service;
 
 import com.dgc.amigoinvisible.config.AmigoProperties;
 import com.dgc.amigoinvisible.model.Assignment;
@@ -102,7 +102,6 @@ public class EmailService {
         }
     }
 
-    /** Escapes characters that would break the JSON string. */
     private String esc(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\")
@@ -129,4 +128,3 @@ public class EmailService {
                 body.toString());
     }
 }
-
