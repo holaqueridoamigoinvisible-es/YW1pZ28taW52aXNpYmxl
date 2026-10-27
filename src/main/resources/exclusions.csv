@@ -1,0 +1,8 @@
+sender,receiver
+# Añade aquí los pares que NO deben asignarse.
+# El nombre debe coincidir exactamente con el de participants.csv.
+# Ejemplo (descomenta las líneas quitando el #):
+Maripi,Juanma
+Juanma,Maripi
+Carmen,Pepe
+Pepe,Carmen

@@ -1,0 +1,34 @@
+spring:
+  batch:
+    job:
+      enabled: true   # launch job automatically on startup
+    jdbc:
+      initialize-schema: always
+  datasource:
+    url: jdbc:h2:mem:batchdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+amigo:
+  participants:
+    file: file:participants.csv
+  exclusions:
+    file: file:exclusions.csv
+  mail:
+    from: ${MAIL_USERNAME}
+    from-name: "Amigo invisible 🎅"
+
+server:
+  port: ${PORT:8080}
