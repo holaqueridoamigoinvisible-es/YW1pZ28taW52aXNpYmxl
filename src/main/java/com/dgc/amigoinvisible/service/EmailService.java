@@ -13,38 +13,36 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
 import java.util.List;
 
 @Slf4j
 @Service
 public class EmailService {
 
-    private static final String MAILJET_URL = "https://api.mailjet.com/v3.1/send";
+    private static final String RESEND_URL = "https://api.resend.com/emails";
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    private final String authorization;
+    private final String apiKey;
     private final AmigoProperties amigoProperties;
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public EmailService(@Value("${mailjet.api-key}") String apiKey,
-                        @Value("${mailjet.secret-key}") String secretKey,
+    public EmailService(@Value("${resend.api-key}") String apiKey,
                         AmigoProperties amigoProperties) {
-        this.authorization = "Basic " +
-                Base64.getEncoder().encodeToString((apiKey + ":" + secretKey).getBytes());
+        this.apiKey = apiKey;
         this.amigoProperties = amigoProperties;
-        log.info("EmailService: Mailjet HTTP client ready (api key starts with {})",
-                apiKey.substring(0, Math.min(6, apiKey.length())));
+        log.info("EmailService: Resend HTTP client ready");
     }
 
     @Async
     public void sendAssignmentEmails(List<Assignment> assignments) {
         log.info("EmailService: async started, {} assignments", assignments.size());
         try {
-            String from     = amigoProperties.getMail().getFrom();
-            String fromName = amigoProperties.getMail().getFromName();
-            log.info("EmailService: from={}", from);
+            String adminEmail = amigoProperties.getMail().getFrom();
+            String fromName   = amigoProperties.getMail().getFromName();
+            // Resend allows sending from onboarding@resend.dev without domain verification
+            String fromAddr   = fromName + " <onboarding@resend.dev>";
+            log.info("EmailService: from={}, adminEmail={}", fromAddr, adminEmail);
 
             int sent = 0, failed = 0;
             for (Assignment assignment : assignments) {
@@ -57,7 +55,7 @@ public class EmailService {
                         + "Mucha suerte con el regalo!\n\n"
                         + "Amigo Invisible App";
 
-                if (sendEmail(from, fromName, senderEmail, senderName,
+                if (sendEmail(fromAddr, senderEmail,
                         "Amigo Invisible - Tu asignacion", body)) {
                     log.info("EmailService: sent OK to {} ({})", senderName, senderEmail);
                     sent++;
@@ -67,37 +65,34 @@ public class EmailService {
                 }
             }
             log.info("EmailService: done - sent={}, failed={}", sent, failed);
-            sendAdminSummary(assignments, from, fromName, sent, failed);
+            sendAdminSummary(assignments, fromAddr, adminEmail, sent, failed);
         } catch (Exception e) {
             log.error("EmailService: unexpected error", e);
         }
     }
 
-    private boolean sendEmail(String fromAddr, String fromName,
-                               String toAddr, String toName,
-                               String subject, String text) {
+    private boolean sendEmail(String from, String to, String subject, String text) {
         String json = "{"
-                + "\"Messages\":[{"
-                + "\"From\":{\"Email\":\"" + esc(fromAddr) + "\",\"Name\":\"" + esc(fromName) + "\"},"
-                + "\"To\":[{\"Email\":\"" + esc(toAddr) + "\",\"Name\":\"" + esc(toName) + "\"}],"
-                + "\"Subject\":\"" + esc(subject) + "\","
-                + "\"TextPart\":\"" + esc(text) + "\""
-                + "}]}";
+                + "\"from\":\"" + esc(from) + "\","
+                + "\"to\":[\"" + esc(to) + "\"],"
+                + "\"subject\":\"" + esc(subject) + "\","
+                + "\"text\":\"" + esc(text) + "\""
+                + "}";
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(MAILJET_URL))
-                    .header("Authorization", authorization)
+                    .uri(URI.create(RESEND_URL))
+                    .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request,
                     HttpResponse.BodyHandlers.ofString());
-            log.info("EmailService: Mailjet status={} body={}", response.statusCode(), response.body());
+            log.info("EmailService: Resend status={} body={}", response.statusCode(), response.body());
             return response.statusCode() == 200;
         } catch (Exception e) {
-            log.error("EmailService: HTTP error sending to {}: {}", toAddr, e.getMessage());
+            log.error("EmailService: HTTP error sending to {}: {}", to, e.getMessage());
             return false;
         }
     }
@@ -112,7 +107,7 @@ public class EmailService {
     }
 
     private void sendAdminSummary(List<Assignment> assignments, String from,
-                                   String fromName, int sent, int failed) {
+                                   String adminEmail, int sent, int failed) {
         StringBuilder body = new StringBuilder();
         body.append("Sorteo realizado el ").append(LocalDateTime.now().format(FORMATTER)).append("\n");
         body.append("Participantes: ").append(assignments.size()).append("\n");
@@ -123,7 +118,7 @@ public class EmailService {
                 .append(a.sender().name()).append(" -> ")
                 .append(a.receiver().name()).append("\n"));
 
-        sendEmail(from, fromName, from, "Organizador",
+        sendEmail(from, adminEmail,
                 "[Amigo Invisible] Sorteo - " + LocalDateTime.now().format(FORMATTER),
                 body.toString());
     }

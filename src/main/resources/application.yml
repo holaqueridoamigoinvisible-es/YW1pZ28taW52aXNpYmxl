@@ -5,7 +5,7 @@ spring:
     jdbc:
       initialize-schema: always
   datasource:
-    url: jdbc:h2:mem:batchdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:batchdb;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -19,9 +19,8 @@ amigo:
     from: ${MAIL_FROM}
     from-name: "Amigo invisible"
 
-mailjet:
-  api-key: ${MAIL_USERNAME}
-  secret-key: ${MAIL_PASSWORD}
+resend:
+  api-key: ${RESEND_API_KEY}
 
 server:
   port: ${PORT:8080}
