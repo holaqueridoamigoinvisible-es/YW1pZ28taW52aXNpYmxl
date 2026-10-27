@@ -8,106 +8,130 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.List;
 
 @Slf4j
 @Service
 public class EmailService {
 
-    private static final String RESEND_URL = "https://api.resend.com/emails";
-    private static final DateTimeFormatter FORMATTER =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final String TOKEN_URL = "https://oauth2.googleapis.com/token";
+    private static final String GMAIL_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    private final String apiKey;
+    private final String clientId;
+    private final String clientSecret;
+    private final String refreshToken;
     private final AmigoProperties amigoProperties;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final HttpClient http = HttpClient.newHttpClient();
 
-    public EmailService(@Value("${resend.api-key}") String apiKey,
-                        AmigoProperties amigoProperties) {
-        this.apiKey = apiKey;
+    public EmailService(
+            @Value("${gmail.client-id}")     String clientId,
+            @Value("${gmail.client-secret}") String clientSecret,
+            @Value("${gmail.refresh-token}") String refreshToken,
+            AmigoProperties amigoProperties) {
+        this.clientId      = clientId;
+        this.clientSecret  = clientSecret;
+        this.refreshToken  = refreshToken;
         this.amigoProperties = amigoProperties;
-        log.info("EmailService: Resend HTTP client ready");
+        log.info("EmailService: Gmail API client ready");
     }
 
     @Async
     public void sendAssignmentEmails(List<Assignment> assignments) {
         log.info("EmailService: async started, {} assignments", assignments.size());
         try {
-            String adminEmail = amigoProperties.getMail().getFrom();
+            String accessToken = getAccessToken();
+            log.info("EmailService: access token obtained");
+
+            String from       = amigoProperties.getMail().getFrom();
             String fromName   = amigoProperties.getMail().getFromName();
-            // Resend allows sending from onboarding@resend.dev without domain verification
-            String fromAddr   = fromName + " <onboarding@resend.dev>";
-            log.info("EmailService: from={}, adminEmail={}", fromAddr, adminEmail);
+            String adminEmail = from; // resumen va a la misma cuenta de envío
 
             int sent = 0, failed = 0;
-            for (Assignment assignment : assignments) {
-                String senderName   = assignment.sender().name();
-                String receiverName = assignment.receiver().name();
-                String senderEmail  = assignment.sender().email();
+            for (Assignment a : assignments) {
+                String body = "Hola " + a.sender().name() + ",\n\n"
+                        + "Tu amigo invisible es " + a.receiver().name() + "!\n\n"
+                        + "Mucha suerte con el regalo!\n\nAmigo Invisible App";
 
-                String body = "Hola " + senderName + ",\n\n"
-                        + "Tu amigo invisible es " + receiverName + "!\n\n"
-                        + "Mucha suerte con el regalo!\n\n"
-                        + "Amigo Invisible App";
-
-                if (sendEmail(fromAddr, senderEmail,
+                if (sendEmail(accessToken, from, fromName, a.sender().email(),
                         "Amigo Invisible - Tu asignacion", body)) {
-                    log.info("EmailService: sent OK to {} ({})", senderName, senderEmail);
+                    log.info("EmailService: sent OK to {}", a.sender().email());
                     sent++;
                 } else {
-                    log.error("EmailService: FAILED to {} ({})", senderName, senderEmail);
+                    log.error("EmailService: FAILED to {}", a.sender().email());
                     failed++;
                 }
             }
             log.info("EmailService: done - sent={}, failed={}", sent, failed);
-            sendAdminSummary(assignments, fromAddr, adminEmail, sent, failed);
+            sendAdminSummary(accessToken, from, fromName, adminEmail, assignments, sent, failed);
         } catch (Exception e) {
-            log.error("EmailService: unexpected error", e);
+            log.error("EmailService: error", e);
         }
     }
 
-    private boolean sendEmail(String from, String to, String subject, String text) {
-        String json = "{"
-                + "\"from\":\"" + esc(from) + "\","
-                + "\"to\":[\"" + esc(to) + "\"],"
-                + "\"subject\":\"" + esc(subject) + "\","
-                + "\"text\":\"" + esc(text) + "\""
-                + "}";
+    private String getAccessToken() throws Exception {
+        String body = "client_id="     + enc(clientId)
+                + "&client_secret=" + enc(clientSecret)
+                + "&refresh_token=" + enc(refreshToken)
+                + "&grant_type=refresh_token";
 
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(TOKEN_URL))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+
+        HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
+        log.info("EmailService: token response status={}", res.statusCode());
+
+        String responseBody = res.body();
+        int idx = responseBody.indexOf("\"access_token\":");
+        if (idx < 0) throw new RuntimeException("No access_token in response: " + responseBody);
+        int start = responseBody.indexOf("\"", idx + 15) + 1;
+        int end   = responseBody.indexOf("\"", start);
+        return responseBody.substring(start, end);
+    }
+
+    private boolean sendEmail(String accessToken, String fromAddr, String fromName,
+                               String to, String subject, String text) {
         try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(RESEND_URL))
-                    .header("Authorization", "Bearer " + apiKey)
+            String mime = "From: " + fromName + " <" + fromAddr + ">\r\n"
+                    + "To: " + to + "\r\n"
+                    + "Subject: " + subject + "\r\n"
+                    + "Content-Type: text/plain; charset=UTF-8\r\n"
+                    + "\r\n"
+                    + text;
+
+            String encoded = Base64.getUrlEncoder().encodeToString(mime.getBytes(StandardCharsets.UTF_8));
+            String json = "{\"raw\":\"" + encoded + "\"}";
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(GMAIL_URL))
+                    .header("Authorization", "Bearer " + accessToken)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request,
-                    HttpResponse.BodyHandlers.ofString());
-            log.info("EmailService: Resend status={} body={}", response.statusCode(), response.body());
-            return response.statusCode() == 200;
+            HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
+            log.info("EmailService: Gmail status={} body={}", res.statusCode(), res.body());
+            return res.statusCode() == 200;
         } catch (Exception e) {
-            log.error("EmailService: HTTP error sending to {}: {}", to, e.getMessage());
+            log.error("EmailService: error sending to {}: {}", to, e.getMessage());
             return false;
         }
     }
 
-    private String esc(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
-    }
-
-    private void sendAdminSummary(List<Assignment> assignments, String from,
-                                   String adminEmail, int sent, int failed) {
+    private void sendAdminSummary(String accessToken, String from, String fromName,
+                                   String adminEmail, List<Assignment> assignments,
+                                   int sent, int failed) {
         StringBuilder body = new StringBuilder();
         body.append("Sorteo realizado el ").append(LocalDateTime.now().format(FORMATTER)).append("\n");
         body.append("Participantes: ").append(assignments.size()).append("\n");
@@ -118,8 +142,12 @@ public class EmailService {
                 .append(a.sender().name()).append(" -> ")
                 .append(a.receiver().name()).append("\n"));
 
-        sendEmail(from, adminEmail,
+        sendEmail(accessToken, from, fromName, adminEmail,
                 "[Amigo Invisible] Sorteo - " + LocalDateTime.now().format(FORMATTER),
                 body.toString());
+    }
+
+    private static String enc(String s) {
+        return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
 }

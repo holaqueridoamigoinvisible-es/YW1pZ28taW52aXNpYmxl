@@ -16,11 +16,13 @@ amigo:
   exclusions:
     file: file:exclusions.csv
   mail:
-    from: ${MAIL_FROM}
+    from: hola.querido.amigo.invisible@gmail.com
     from-name: "Amigo invisible"
 
-resend:
-  api-key: ${RESEND_API_KEY}
+gmail:
+  client-id: ${GMAIL_CLIENT_ID}
+  client-secret: ${GMAIL_CLIENT_SECRET}
+  refresh-token: ${GMAIL_REFRESH_TOKEN}
 
 server:
   port: ${PORT:8080}
