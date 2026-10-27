@@ -10,7 +10,7 @@ spring:
     username: sa
     password:
   mail:
-    host: smtp.gmail.com
+    host: in-v3.mailjet.com
     port: 587
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
