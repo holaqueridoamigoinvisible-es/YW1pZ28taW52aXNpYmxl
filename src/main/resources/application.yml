@@ -16,7 +16,7 @@ amigo:
   exclusions:
     file: file:exclusions.csv
   mail:
-    from: ${MAIL_USERNAME}
+    from: ${MAIL_FROM}
     from-name: "Amigo invisible"
 
 mailjet:
