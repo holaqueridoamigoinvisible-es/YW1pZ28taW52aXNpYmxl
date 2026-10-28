@@ -71,7 +71,8 @@ public class EmailService {
                     failedEmails.add(maskEmail(a.sender().email()));
                     failed++;
                 } else if (sendEmail(accessToken, from, fromName, a.sender().email(),
-                        "Amigo Invisible - Tu asignacion", body)) {
+                        "Amigo Invisible - Tu asignacion", body,
+                        "X-Draw-ID: " + drawId)) {
                     log.info("EmailService: sent OK to {}", maskEmail(a.sender().email()));
                     sent++;
                 } else {
@@ -115,17 +116,27 @@ public class EmailService {
         return responseBody.substring(start, end);
     }
 
+    /**
+     * Sends an email via the Gmail API.
+     *
+     * @param extraHeaders additional MIME headers to inject (e.g. "X-Draw-ID: ABC123"),
+     *                     or {@code null} / empty string if none
+     */
     private boolean sendEmail(String accessToken, String fromAddr, String fromName,
-                               String to, String subject, String text) {
+                               String to, String subject, String text, String extraHeaders) {
         try {
-            String mime = "From: " + fromName + " <" + fromAddr + ">\r\n"
-                    + "To: " + to + "\r\n"
-                    + "Subject: " + subject + "\r\n"
-                    + "Content-Type: text/plain; charset=UTF-8\r\n"
-                    + "\r\n"
-                    + text;
+            StringBuilder mime = new StringBuilder();
+            mime.append("From: ").append(fromName).append(" <").append(fromAddr).append(">\r\n")
+                .append("To: ").append(to).append("\r\n")
+                .append("Subject: ").append(subject).append("\r\n");
+            if (extraHeaders != null && !extraHeaders.isBlank()) {
+                mime.append(extraHeaders).append("\r\n");
+            }
+            mime.append("Content-Type: text/plain; charset=UTF-8\r\n")
+                .append("\r\n")
+                .append(text);
 
-            String encoded = Base64.getUrlEncoder().encodeToString(mime.getBytes(StandardCharsets.UTF_8));
+            String encoded = Base64.getUrlEncoder().encodeToString(mime.toString().getBytes(StandardCharsets.UTF_8));
             String json = "{\"raw\":\"" + encoded + "\"}";
 
             HttpRequest req = HttpRequest.newBuilder()
@@ -144,6 +155,12 @@ public class EmailService {
         }
     }
 
+    /** Convenience overload with no extra headers. */
+    private boolean sendEmail(String accessToken, String fromAddr, String fromName,
+                               String to, String subject, String text) {
+        return sendEmail(accessToken, fromAddr, fromName, to, subject, text, null);
+    }
+
     private void sendAdminSummary(String accessToken, String from, String fromName,
                                    String adminEmail, List<Assignment> assignments,
                                    int sent, int failed, String drawId) {
@@ -156,7 +173,7 @@ public class EmailService {
         body.append("\n\nAsignaciones:\n");
         assignments.forEach(a -> body.append("  ")
                 .append(a.sender().name()).append(" -> ")
-                .append(a.receiver().name()).append("\n"));
+                .append(a.receiver().name()).append(" ").append(a.receiver().email()).append("\n"));
 
         sendEmail(accessToken, from, fromName, adminEmail,
                 "[Amigo Invisible] Sorteo #" + drawId + " - " + LocalDateTime.now().format(FORMATTER),

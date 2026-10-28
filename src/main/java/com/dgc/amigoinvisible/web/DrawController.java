@@ -91,10 +91,8 @@ public class DrawController {
             List<Assignment> assignments = derangementService.draw(persons, exclusions);
             log.info("Draw completed - {} assignments, sending emails", assignments.size());
             EmailSendResult result = emailService.sendAssignmentEmails(assignments);
-            log.info("Email send finished - sent={}, failed={}", result.sent(), result.failed());
+            log.info("Email send finished - sent={}", result.sent());
             model.addAttribute("sent",         result.sent());
-            model.addAttribute("failed",       result.failed());
-            model.addAttribute("failedEmails", result.failedEmails());
             model.addAttribute("drawId",       result.drawId());
             model.addAttribute("supportEmail", amigoProperties.getMail().getFrom());
             return "done";
