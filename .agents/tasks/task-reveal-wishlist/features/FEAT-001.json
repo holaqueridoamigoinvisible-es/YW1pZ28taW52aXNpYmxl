@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Backend plumbing for stateless reveal tokens and in-memory wish lists. Adds two config properties (token.secret, app.base-url), extends AmigoProperties with two nested static classes, and creates two new Spring services. No changes to existing web endpoints or email sending logic — FEAT-002 builds on top of this. Independent of FEAT-002.",
+  "status": "completed",
+  "steps": [
+    "Step 1 — Edit src/main/resources/application.yml: under the existing `amigo:` block (after the `mail:` sub-block) add: `  token:\\n    secret: ${TOKEN_SECRET:amigo-invisible-secret-key-padding}\\n  app:\\n    base-url: ${APP_BASE_URL:http://localhost:8080}`. Preserve all existing indentation and content.",
+    "Step 2 — Edit src/main/java/com/dgc/amigoinvisible/config/AmigoProperties.java: (a) add two new fields to the class body: `private Token token = new Token();` and `private App app = new App();`. (b) Add two new nested static inner classes after the existing Mail class, both annotated with @Getter and @Setter: `public static class Token { private String secret = \"amigo-invisible-secret-key-padding\"; }` and `public static class App { private String baseUrl = \"http://localhost:8080\"; }`. Follow the exact same pattern as the existing Participants/Exclusions/Mail classes.",
+    "Step 3 — Create src/main/java/com/dgc/amigoinvisible/service/TokenService.java: @Slf4j @Service with a manually written constructor (NOT @RequiredArgsConstructor, because initialization logic is needed). Constructor takes AmigoProperties, derives a 16-byte AES key by MD5-hashing the secret, and stores it as a final SecretKeySpec field. Method `createToken(String senderName, String senderEmail, String receiverName, String receiverEmail, String drawId)`: builds payload `drawId|senderName|senderEmail|receiverName|receiverEmail`, generates 16-byte random IV via SecureRandom, encrypts with AES/CBC/PKCS5Padding (javax.crypto.Cipher), prepends IV to ciphertext, returns Base64.getUrlEncoder().withoutPadding().encodeToString(combined). Method `decode(String token)`: Base64URL-decodes, splits IV (first 16 bytes) from ciphertext, decrypts, splits payload on '|' with limit 5, returns Optional<AssignmentData> or Optional.empty() on any exception. Inner public record: `AssignmentData(String drawId, String senderName, String senderEmail, String receiverName, String receiverEmail)`. Imports: javax.crypto.Cipher, javax.crypto.spec.IvParameterSpec, javax.crypto.spec.SecretKeySpec, java.security.MessageDigest, java.security.SecureRandom, java.util.Arrays, java.util.Base64, java.util.Optional, java.nio.charset.StandardCharsets.",
+    "Step 4 — Create src/main/java/com/dgc/amigoinvisible/service/WishListService.java: @Service (no Lombok constructor annotation needed — no injected dependencies). Field: `private final ConcurrentHashMap<String, String> wishes = new ConcurrentHashMap<>()`. Method `save(String email, String text)`: calls `wishes.put(normalise(email), text)`. Method `get(String email)`: returns `Optional.ofNullable(wishes.get(normalise(email)))`. Private static helper `normalise(String email)`: returns `email.toLowerCase().trim()`, handling null by returning empty string."
+  ],
+  "acceptance_criteria": [
+    "application.yml has `amigo.token.secret` and `amigo.app.base-url` entries that can be overridden by TOKEN_SECRET and APP_BASE_URL env vars respectively.",
+    "AmigoProperties.getToken().getSecret() and AmigoProperties.getApp().getBaseUrl() are accessible after Spring context starts.",
+    "TokenService.createToken(...) returns a non-null Base64URL string with no '=' padding.",
+    "TokenService.decode(token) called with the result of createToken(...) returns Optional containing the original AssignmentData with all five fields intact.",
+    "TokenService.decode(\"invalid\") returns Optional.empty() without throwing.",
+    "WishListService.save(email, text) followed by WishListService.get(email) returns Optional.of(text).",
+    "WishListService.get(email) for an unsaved email returns Optional.empty().",
+    "WishListService normalises email case: save('A@B.COM', 'x') then get('a@b.com') returns Optional.of('x').",
+    "`mvn compile` passes with BUILD SUCCESS."
+  ],
+  "verification": [
+    "Run `mvn compile` from c:\\projects\\DGC\\amigo-invisible — must exit 0 with BUILD SUCCESS.",
+    "Run `mvn test` from c:\\projects\\DGC\\amigo-invisible — must exit 0 (no test failures; no test classes exist so this mainly verifies Spring context loads)."
+  ],
+  "blocked_reason": null,
+  "findings": "AmigoProperties Token/App nested classes use @Getter/@Setter on the static inner class, same as Mail. TokenService uses a manual constructor (not @RequiredArgsConstructor) because key derivation runs at init time. WishListService has no injected deps so no constructor annotation is needed. FEAT-002 needs: (a) inject TokenService + AmigoProperties into EmailService (manual constructor — add parameter, assign field); (b) generate token and revealLink inside sendAssignmentEmails using a.sender().name(), a.sender().email(), a.receiver().name(), a.receiver().email(), drawId; (c) create RevealController.java with GET /reveal/{token} and POST /reveal/{token}/wishes; (d) create reveal.html Thymeleaf template."
+}
