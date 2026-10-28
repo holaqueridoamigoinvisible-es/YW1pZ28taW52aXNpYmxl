@@ -90,13 +90,13 @@
         Aún no hay mensajes. ¡Rompe el hielo!
       </p>
       <div th:each="msg : ${messages}"
-           th:classappend="${msg.role() == 'SANTA'} ? 'd-flex justify-content-start mb-2'
-                                                    : 'd-flex justify-content-end mb-2'">
-        <div th:classappend="${msg.role() == 'SANTA'} ? 'bg-light border rounded p-2'
-                                                      : 'text-white rounded p-2'"
-             th:style="${msg.role() == 'SANTA'} ? '' : 'background-color:#27ae60'">
+           th:classappend="${msg.role() == role} ? 'd-flex justify-content-end mb-2'
+                                                : 'd-flex justify-content-start mb-2'">
+        <div th:classappend="${msg.role() == role} ? 'text-white rounded p-2'
+                                                   : 'bg-light border rounded p-2'"
+             th:style="${msg.role() == role} ? 'background-color:#27ae60' : ''">
           <small class="fw-semibold d-block"
-                 th:text="${msg.role() == 'SANTA'} ? '🎅 Tu amigo invisible:' : '🎁 Tú:'"></small>
+                 th:text="${msg.role() == role} ? '🎁 Tú:' : '🎅 Tu amigo invisible:'"></small>
           <span th:text="${msg.text()}"></span>
         </div>
       </div>
@@ -118,19 +118,20 @@
 
   <script th:inline="javascript">
     const TOKEN = /*[[${token}]]*/ '';
+    const VIEWER_ROLE = /*[[${role}]]*/ 'SANTA';
 
     function buildBubble(msg) {
-      const isSanta = msg.role === 'SANTA';
+      const isMine = msg.role === VIEWER_ROLE;
       const outer = document.createElement('div');
-      outer.className = isSanta
-        ? 'd-flex justify-content-start mb-2'
-        : 'd-flex justify-content-end mb-2';
+      outer.className = isMine
+        ? 'd-flex justify-content-end mb-2'
+        : 'd-flex justify-content-start mb-2';
       const bubble = document.createElement('div');
-      bubble.className = isSanta ? 'bg-light border rounded p-2' : 'text-white rounded p-2';
-      if (!isSanta) bubble.style.backgroundColor = '#27ae60';
+      bubble.className = isMine ? 'text-white rounded p-2' : 'bg-light border rounded p-2';
+      if (isMine) bubble.style.backgroundColor = '#27ae60';
       const label = document.createElement('small');
       label.className = 'fw-semibold d-block';
-      label.textContent = isSanta ? '🎅 Tu amigo invisible:' : '🎁 Tú:';
+      label.textContent = isMine ? '🎁 Tú:' : '🎅 Tu amigo invisible:';
       const text = document.createElement('span');
       text.textContent = msg.text;
       bubble.appendChild(label);

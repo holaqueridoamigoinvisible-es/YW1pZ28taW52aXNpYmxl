@@ -26,8 +26,15 @@ public class TokenService {
 
     private final SecretKeySpec aesKey;
 
+    private static final String DEFAULT_SECRET = "amigo-invisible-secret-key-padding";
+
     public TokenService(AmigoProperties properties) {
         String secret = properties.getToken().getSecret();
+        if (DEFAULT_SECRET.equals(secret)) {
+            log.warn("TokenService: using the built-in default AES secret — "
+                    + "set TOKEN_SECRET in the environment before deploying to production. "
+                    + "Tokens generated with this key are forgeable by anyone with source access.");
+        }
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] keyBytes = md.digest(secret.getBytes(StandardCharsets.UTF_8));

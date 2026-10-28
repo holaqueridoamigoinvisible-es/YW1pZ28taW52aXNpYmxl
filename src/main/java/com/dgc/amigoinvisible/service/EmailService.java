@@ -91,7 +91,7 @@ public class EmailService {
                     failed++;
                 }
 
-                // Send recipient chat email (no MX check — domain already validated above)
+                // Send recipient chat email — no MX check (only the sender's domain was verified above)
                 String recipientToken = tokenService.createRecipientToken(
                         a.sender().name(), a.sender().email(),
                         a.receiver().name(), a.receiver().email(),
