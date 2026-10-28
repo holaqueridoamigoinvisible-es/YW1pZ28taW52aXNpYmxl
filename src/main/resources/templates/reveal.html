@@ -24,14 +24,14 @@
 
   <h1 class="mb-4 text-center">🎁 Tu Amigo Invisible</h1>
 
-  <!-- ── Receiver card ── -->
-  <div class="receiver-card shadow-sm">
+  <!-- ── Receiver card (SANTA only) ── -->
+  <div th:if="${role == 'SANTA'}" class="receiver-card shadow-sm">
     <div class="receiver-name" th:text="${receiverName}">Nombre</div>
     <p class="mt-2 mb-0 fs-5">¡Es la persona a la que tienes que regalar! 🎅</p>
   </div>
 
-  <!-- ── Receiver wish list ── -->
-  <div class="mt-4" style="max-width:500px;margin:0 auto;">
+  <!-- ── Receiver wish list (SANTA only) ── -->
+  <div th:if="${role == 'SANTA'}" class="mt-4" style="max-width:500px;margin:0 auto;">
     <div th:if="${receiverWishes != null}" class="card">
       <div class="card-body">
         <h5 class="card-title">🎁 Lista de deseos de <span th:text="${receiverName}"></span></h5>
@@ -43,15 +43,15 @@
     </p>
   </div>
 
-  <!-- ── Save confirmation alert ── -->
-  <div th:if="${saved != null and saved}"
+  <!-- ── Save confirmation alert (SANTA only) ── -->
+  <div th:if="${role == 'SANTA' and saved != null and saved}"
        class="alert alert-success mt-4"
        style="max-width:500px;margin:1.5rem auto 0;">
     ✅ ¡Tu lista de deseos ha sido guardada!
   </div>
 
-  <!-- ── My wish list form ── -->
-  <div class="mt-4" style="max-width:500px;margin:0 auto;">
+  <!-- ── My wish list form (SANTA only) ── -->
+  <div th:if="${role == 'SANTA'}" class="mt-4" style="max-width:500px;margin:0 auto;">
     <h5>📝 Tu lista de deseos</h5>
     <p class="text-muted small">Cuéntale a tu amigo invisible qué regalos te gustarían.</p>
     <form th:action="@{/reveal/{t}/wishes(t=${token})}" method="post">
@@ -66,9 +66,122 @@
     </form>
   </div>
 
+  <!-- ── Recipient greeting (RECIPIENT only) ── -->
+  <div th:if="${role == 'RECIPIENT'}" class="text-center mb-4">
+    <h2>🎁 Hola, <span th:text="${recipientName}">Nombre</span>!</h2>
+    <p class="text-muted">Alguien está preparando un regalo para ti. ¡Chatea de forma anónima!</p>
+  </div>
+
+  <!-- ── Chat section (all roles) ── -->
+  <div class="mt-4" style="max-width:500px;margin:0 auto;">
+    <h5 th:if="${role == 'SANTA'}">
+      💬 Chat anónimo con <span th:text="${receiverName}"></span>
+    </h5>
+    <h5 th:if="${role == 'RECIPIENT'}">💬 Chat anónimo con tu amigo invisible</h5>
+
+    <!-- Message list (server-side initial render; JS takes over for live updates) -->
+    <div id="chat-messages"
+         style="border:1px solid #ddd;border-radius:8px;padding:1rem;
+                min-height:120px;max-height:350px;overflow-y:auto;
+                background:#fff;margin-bottom:0.75rem;">
+      <p th:if="${#lists.isEmpty(messages)}"
+         id="empty-msg"
+         class="text-muted fst-italic text-center mb-0">
+        Aún no hay mensajes. ¡Rompe el hielo!
+      </p>
+      <div th:each="msg : ${messages}"
+           th:classappend="${msg.role() == 'SANTA'} ? 'd-flex justify-content-start mb-2'
+                                                    : 'd-flex justify-content-end mb-2'">
+        <div th:classappend="${msg.role() == 'SANTA'} ? 'bg-light border rounded p-2'
+                                                      : 'text-white rounded p-2'"
+             th:style="${msg.role() == 'SANTA'} ? '' : 'background-color:#27ae60'">
+          <small class="fw-semibold d-block"
+                 th:text="${msg.role() == 'SANTA'} ? '🎅 Tu amigo invisible:' : '🎁 Tú:'"></small>
+          <span th:text="${msg.text()}"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="d-flex gap-2">
+      <textarea id="chat-input" rows="2"
+                class="form-control"
+                placeholder="Escribe un mensaje..."></textarea>
+      <button onclick="sendChatMessage()"
+              class="btn btn-success align-self-end">Enviar</button>
+    </div>
+  </div>
+
   <div class="text-center mt-5">
     <a href="/" class="btn btn-outline-secondary">🏠 Inicio</a>
   </div>
+
+  <script th:inline="javascript">
+    const TOKEN = /*[[${token}]]*/ '';
+
+    function buildBubble(msg) {
+      const isSanta = msg.role === 'SANTA';
+      const outer = document.createElement('div');
+      outer.className = isSanta
+        ? 'd-flex justify-content-start mb-2'
+        : 'd-flex justify-content-end mb-2';
+      const bubble = document.createElement('div');
+      bubble.className = isSanta ? 'bg-light border rounded p-2' : 'text-white rounded p-2';
+      if (!isSanta) bubble.style.backgroundColor = '#27ae60';
+      const label = document.createElement('small');
+      label.className = 'fw-semibold d-block';
+      label.textContent = isSanta ? '🎅 Tu amigo invisible:' : '🎁 Tú:';
+      const text = document.createElement('span');
+      text.textContent = msg.text;
+      bubble.appendChild(label);
+      bubble.appendChild(text);
+      outer.appendChild(bubble);
+      return outer;
+    }
+
+    function loadMessages() {
+      fetch('/reveal/' + TOKEN + '/messages')
+        .then(r => r.json())
+        .then(msgs => {
+          const box = document.getElementById('chat-messages');
+          box.innerHTML = '';
+          if (msgs.length === 0) {
+            const p = document.createElement('p');
+            p.id = 'empty-msg';
+            p.className = 'text-muted fst-italic text-center mb-0';
+            p.textContent = 'Aún no hay mensajes. ¡Rompe el hielo!';
+            box.appendChild(p);
+          } else {
+            msgs.forEach(m => box.appendChild(buildBubble(m)));
+            box.scrollTop = box.scrollHeight;
+          }
+        })
+        .catch(() => {/* silent — next poll will retry */});
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      fetch('/reveal/' + TOKEN + '/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'text=' + encodeURIComponent(text)
+      })
+        .then(r => { if (r.ok) { input.value = ''; loadMessages(); } })
+        .catch(() => {});
+    }
+
+    // Ctrl+Enter / Cmd+Enter to send
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('chat-input').addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') sendChatMessage();
+      });
+      loadMessages();
+    });
+
+    setInterval(loadMessages, 5000);
+  </script>
 
 </body>
 </html>

@@ -65,7 +65,7 @@ public class EmailService {
             int sent = 0, failed = 0;
             List<String> failedEmails = new ArrayList<>();
             for (Assignment a : assignments) {
-                String token = tokenService.createToken(
+                String token = tokenService.createSantaToken(
                         a.sender().name(), a.sender().email(),
                         a.receiver().name(), a.receiver().email(),
                         drawId);
@@ -89,6 +89,25 @@ public class EmailService {
                     log.error("EmailService: FAILED to {}", maskEmail(a.sender().email()));
                     failedEmails.add(maskEmail(a.sender().email()));
                     failed++;
+                }
+
+                // Send recipient chat email (no MX check — domain already validated above)
+                String recipientToken = tokenService.createRecipientToken(
+                        a.sender().name(), a.sender().email(),
+                        a.receiver().name(), a.receiver().email(),
+                        drawId);
+                String recipientLink = amigoProperties.getApp().getBaseUrl() + "/reveal/" + recipientToken;
+                String recipientBody = "Hola " + a.receiver().name() + ",\n\n"
+                        + "Alguien está preparando un regalo para ti 🎁\n"
+                        + "Tu amigo invisible quiere conocerte un poco mejor.\n\n"
+                        + "Puedes chatear con él de forma anónima aquí:\n\n"
+                        + recipientLink + "\n\n"
+                        + "¡Que empiece la intriga!\n\nAmigo Invisible App";
+                String recipientSubject = "Amigo invisible · Alguien te tiene 🎁 (id. " + drawId + ")";
+                if (!sendEmail(accessToken, from, fromName, a.receiver().email(),
+                               recipientSubject, recipientBody)) {
+                    log.warn("EmailService: recipient chat email FAILED to {}",
+                             maskEmail(a.receiver().email()));
                 }
             }
             log.info("EmailService: done draw={} - sent={}, failed={}", drawId, sent, failed);

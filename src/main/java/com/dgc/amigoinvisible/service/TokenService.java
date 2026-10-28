@@ -17,7 +17,8 @@ import java.util.Optional;
 
 /**
  * Stateless token service: AES-128-CBC, random IV prepended, Base64URL (no padding).
- * Payload format: drawId|senderName|senderEmail|receiverName|receiverEmail
+ * Payload format: drawId|senderName|senderEmail|receiverName|receiverEmail|role
+ * (legacy 5-field tokens without role are decoded as SANTA for backward compat)
  */
 @Slf4j
 @Service
@@ -38,16 +39,31 @@ public class TokenService {
     }
 
     /**
-     * Encrypts the assignment data into a URL-safe token.
+     * Encrypts a SANTA-role token (the santa's reveal link).
      *
      * @return Base64URL-encoded string (no padding), containing 16-byte IV + ciphertext
      */
-    public String createToken(String senderName, String senderEmail,
-                               String receiverName, String receiverEmail,
-                               String drawId) {
+    public String createSantaToken(String senderName, String senderEmail,
+                                    String receiverName, String receiverEmail,
+                                    String drawId) {
+        return encrypt(String.join("|", drawId, senderName, senderEmail,
+                                   receiverName, receiverEmail, "SANTA"));
+    }
+
+    /**
+     * Encrypts a RECIPIENT-role token (the recipient's anonymous chat link).
+     *
+     * @return Base64URL-encoded string (no padding), containing 16-byte IV + ciphertext
+     */
+    public String createRecipientToken(String senderName, String senderEmail,
+                                        String receiverName, String receiverEmail,
+                                        String drawId) {
+        return encrypt(String.join("|", drawId, senderName, senderEmail,
+                                   receiverName, receiverEmail, "RECIPIENT"));
+    }
+
+    private String encrypt(String payload) {
         try {
-            String payload = String.join("|", drawId, senderName, senderEmail,
-                                         receiverName, receiverEmail);
             byte[] iv = new byte[16];
             new SecureRandom().nextBytes(iv);
             IvParameterSpec ivSpec = new IvParameterSpec(iv);
@@ -68,7 +84,9 @@ public class TokenService {
     }
 
     /**
-     * Decodes and decrypts a token produced by {@link #createToken}.
+     * Decodes and decrypts a token.
+     * Accepts both the legacy 5-field format (role defaults to SANTA) and
+     * the current 6-field format.
      *
      * @return Optional containing the decoded data, or empty on any error.
      */
@@ -86,11 +104,12 @@ public class TokenService {
             byte[] decrypted = cipher.doFinal(ciphertext);
 
             String payload = new String(decrypted, StandardCharsets.UTF_8);
-            // Limit split to 5 to tolerate any '|' in names
-            String[] parts = payload.split("\\|", 5);
-            if (parts.length != 5) return Optional.empty();
+            // Split up to 6 fields; 5-field legacy tokens get role defaulted to SANTA
+            String[] parts = payload.split("\\|", 6);
+            if (parts.length < 5) return Optional.empty();
 
-            return Optional.of(new AssignmentData(parts[0], parts[1], parts[2], parts[3], parts[4]));
+            String role = parts.length == 6 ? parts[5] : "SANTA";
+            return Optional.of(new AssignmentData(parts[0], parts[1], parts[2], parts[3], parts[4], role));
         } catch (Exception e) {
             log.warn("TokenService: token decode failed — {}", e.getMessage());
             return Optional.empty();
@@ -103,5 +122,6 @@ public class TokenService {
             String senderName,
             String senderEmail,
             String receiverName,
-            String receiverEmail) {}
+            String receiverEmail,
+            String role) {}
 }
