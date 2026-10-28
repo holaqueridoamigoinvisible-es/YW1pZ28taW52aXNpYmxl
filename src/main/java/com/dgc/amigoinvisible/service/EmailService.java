@@ -4,7 +4,6 @@ import com.dgc.amigoinvisible.config.AmigoProperties;
 import com.dgc.amigoinvisible.model.Assignment;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -15,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
@@ -44,9 +44,8 @@ public class EmailService {
         log.info("EmailService: Gmail API client ready");
     }
 
-    @Async
-    public void sendAssignmentEmails(List<Assignment> assignments) {
-        log.info("EmailService: async started, {} assignments", assignments.size());
+    public EmailSendResult sendAssignmentEmails(List<Assignment> assignments) {
+        log.info("EmailService: started, {} assignments", assignments.size());
         try {
             String accessToken = getAccessToken();
             log.info("EmailService: access token obtained");
@@ -56,6 +55,7 @@ public class EmailService {
             String adminEmail = from; // resumen va a la misma cuenta de envío
 
             int sent = 0, failed = 0;
+            List<String> failedEmails = new ArrayList<>();
             for (Assignment a : assignments) {
                 String body = "Hola " + a.sender().name() + ",\n\n"
                         + "Tu amigo invisible es " + a.receiver().name() + "!\n\n"
@@ -63,17 +63,23 @@ public class EmailService {
 
                 if (sendEmail(accessToken, from, fromName, a.sender().email(),
                         "Amigo Invisible - Tu asignacion", body)) {
-                    log.info("EmailService: sent OK to {}", a.sender().email());
+                    log.info("EmailService: sent OK to {}", maskEmail(a.sender().email()));
                     sent++;
                 } else {
-                    log.error("EmailService: FAILED to {}", a.sender().email());
+                    log.error("EmailService: FAILED to {}", maskEmail(a.sender().email()));
+                    failedEmails.add(maskEmail(a.sender().email()));
                     failed++;
                 }
             }
             log.info("EmailService: done - sent={}, failed={}", sent, failed);
             sendAdminSummary(accessToken, from, fromName, adminEmail, assignments, sent, failed);
+            return new EmailSendResult(sent, failed, failedEmails);
         } catch (Exception e) {
             log.error("EmailService: error", e);
+            List<String> allFailed = assignments.stream()
+                    .map(a -> maskEmail(a.sender().email()))
+                    .toList();
+            return new EmailSendResult(0, assignments.size(), allFailed);
         }
     }
 
@@ -124,7 +130,7 @@ public class EmailService {
             log.info("EmailService: Gmail status={} body={}", res.statusCode(), res.body());
             return res.statusCode() == 200;
         } catch (Exception e) {
-            log.error("EmailService: error sending to {}: {}", to, e.getMessage());
+            log.error("EmailService: error sending to {}: {}", maskEmail(to), e.getMessage());
             return false;
         }
     }
@@ -149,5 +155,15 @@ public class EmailService {
 
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
+    /** Returns the first 2 chars of the local part + *** + @domain. e.g. mario.gomez@gmail.com → ma***@gmail.com */
+    private static String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return "***";
+        int at = email.indexOf('@');
+        String local  = email.substring(0, at);
+        String domain = email.substring(at);          // includes the '@'
+        String prefix = local.length() >= 2 ? local.substring(0, 2) : local;
+        return prefix + "***" + domain;
     }
 }

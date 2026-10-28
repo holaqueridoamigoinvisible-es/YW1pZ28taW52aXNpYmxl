@@ -18,22 +18,42 @@
       text-align: center;
     }
     .numero { font-size: 3rem; font-weight: bold; color: #27ae60; }
+    .numero-fail { font-size: 3rem; font-weight: bold; color: #c0392b; }
   </style>
 </head>
 <body class="container py-5">
   <h1 class="mb-4 text-center">✅ ¡Sorteo realizado!</h1>
 
-  <div class="card-done shadow-sm">
-    <div class="numero" th:text="${count}">0</div>
-    <p class="mt-2 mb-3 fs-5">participantes recibirán su email en breve.</p>
-    <p class="text-muted small">
-      Los emails se están enviando en segundo plano.
-      Revisa tu bandeja de entrada para confirmar que llegaron.
-    </p>
+  <!-- All emails sent OK -->
+  <div th:if="${failed == 0}" class="card-done shadow-sm">
+    <div class="numero" th:text="${sent}">0</div>
+    <p class="mt-2 mb-0 fs-5">emails enviados correctamente.</p>
+  </div>
+
+  <!-- Some or all failed -->
+  <div th:if="${failed > 0}" class="card-done shadow-sm">
+    <div th:if="${sent > 0}">
+      <div class="numero" th:text="${sent}">0</div>
+      <p class="mt-2 mb-3 fs-5">emails enviados correctamente.</p>
+    </div>
+
+    <div class="alert alert-danger mb-0" role="alert">
+      <strong>⚠️ <span th:text="${failed}">0</span>
+        <span th:text="${failed == 1} ? 'email no pudo enviarse:' : 'emails no pudieron enviarse:'">emails no pudieron enviarse:</span>
+      </strong>
+      <ul class="mb-0 mt-2 text-start small">
+        <li th:each="addr : ${failedEmails}" th:text="${addr}"></li>
+      </ul>
+    </div>
   </div>
 
   <div class="text-center mt-4">
     <a href="/" class="btn btn-success">🔄 Nuevo sorteo</a>
   </div>
+
+  <p class="text-center text-muted small mt-4">
+    Para cualquier problema contacta con el servicio técnico:
+    <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}"></a>
+  </p>
 </body>
 </html>

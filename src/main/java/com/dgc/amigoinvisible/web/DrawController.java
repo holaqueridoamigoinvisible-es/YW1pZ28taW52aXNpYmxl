@@ -1,9 +1,11 @@
 package com.dgc.amigoinvisible.web;
 
+import com.dgc.amigoinvisible.config.AmigoProperties;
 import com.dgc.amigoinvisible.model.Assignment;
 import com.dgc.amigoinvisible.model.Exclusion;
 import com.dgc.amigoinvisible.model.Person;
 import com.dgc.amigoinvisible.service.DerangementService;
+import com.dgc.amigoinvisible.service.EmailSendResult;
 import com.dgc.amigoinvisible.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ public class DrawController {
 
     private final DerangementService derangementService;
     private final EmailService emailService;
+    private final AmigoProperties amigoProperties;
 
     @GetMapping("/")
     public String index(Model model) {
@@ -86,9 +89,13 @@ public class DrawController {
 
         try {
             List<Assignment> assignments = derangementService.draw(persons, exclusions);
-            log.info("Draw completed - {} assignments, triggering async email send", assignments.size());
-            emailService.sendAssignmentEmails(assignments);
-            model.addAttribute("count", assignments.size());
+            log.info("Draw completed - {} assignments, sending emails", assignments.size());
+            EmailSendResult result = emailService.sendAssignmentEmails(assignments);
+            log.info("Email send finished - sent={}, failed={}", result.sent(), result.failed());
+            model.addAttribute("sent",         result.sent());
+            model.addAttribute("failed",       result.failed());
+            model.addAttribute("failedEmails", result.failedEmails());
+            model.addAttribute("supportEmail", amigoProperties.getMail().getFrom());
             return "done";
         } catch (IllegalStateException ex) {
             log.error("Draw failed: {}", ex.getMessage());
