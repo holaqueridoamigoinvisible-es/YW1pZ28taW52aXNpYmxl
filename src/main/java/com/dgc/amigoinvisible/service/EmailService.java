@@ -35,16 +35,19 @@ public class EmailService {
     private final String refreshToken;
     private final AmigoProperties amigoProperties;
     private final HttpClient http = HttpClient.newHttpClient();
+    private final TokenService tokenService;
 
     public EmailService(
             @Value("${gmail.client-id}")     String clientId,
             @Value("${gmail.client-secret}") String clientSecret,
             @Value("${gmail.refresh-token}") String refreshToken,
-            AmigoProperties amigoProperties) {
-        this.clientId      = clientId;
-        this.clientSecret  = clientSecret;
-        this.refreshToken  = refreshToken;
+            AmigoProperties amigoProperties,
+            TokenService tokenService) {
+        this.clientId        = clientId;
+        this.clientSecret    = clientSecret;
+        this.refreshToken    = refreshToken;
         this.amigoProperties = amigoProperties;
+        this.tokenService    = tokenService;
         log.info("EmailService: Gmail API client ready");
     }
 
@@ -62,9 +65,17 @@ public class EmailService {
             int sent = 0, failed = 0;
             List<String> failedEmails = new ArrayList<>();
             for (Assignment a : assignments) {
+                String token = tokenService.createToken(
+                        a.sender().name(), a.sender().email(),
+                        a.receiver().name(), a.receiver().email(),
+                        drawId);
+                String revealLink = amigoProperties.getApp().getBaseUrl() + "/reveal/" + token;
                 String body = "Hola " + a.sender().name() + ",\n\n"
-                        + "¡Tu amigo invisible es " + a.receiver().name() + "!\n\n"
-                        + "¡Mucha suerte con el regalo!\n\nAmigo Invisible App";
+                        + "¡Ya tienes asignado a tu amigo invisible!\n\n"
+                        + "Haz clic en el siguiente enlace para descubrir a quién tienes que regalar:\n\n"
+                        + revealLink + "\n\n"
+                        + "En esa página también podrás compartir tu lista de deseos para que tu amigo invisible sepa qué regalarte.\n\n"
+                        + "¡Mucha suerte!\n\nAmigo Invisible App";
 
                 if (!domainHasMx(a.sender().email())) {
                     log.error("EmailService: domain has no MX records, skipping {}", maskEmail(a.sender().email()));
