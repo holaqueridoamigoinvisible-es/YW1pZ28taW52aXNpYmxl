@@ -15,6 +15,13 @@
     .email-suggestion { font-size: 0.85rem; color: #b7770d; margin-top: 3px; display: none; }
     .email-suggestion a { color: #b7770d; font-weight: 600; }
     .email-suggestion a:hover { opacity: 0.75; text-decoration: none; }
+    .loading-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55); z-index: 9999;
+      flex-direction: column; align-items: center; justify-content: center;
+      color: #fff;
+    }
+    .loading-overlay.active { display: flex; }
   </style>
 </head>
 <body class="container py-4">
@@ -23,6 +30,13 @@
   <div th:if="${error}" class="alert alert-danger fw-bold" th:text="${error}"></div>
 
   <form th:action="@{/draw}" th:object="${form}" method="post" novalidate>
+
+    <!-- ── Loading overlay ── -->
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="spinner-border mb-3" style="width:3rem;height:3rem;" role="status"></div>
+      <div class="fs-5 fw-semibold">🎅 Realizando el sorteo...</div>
+      <div class="mt-1 small" style="color:rgba(255,255,255,0.7)">Enviando los emails, un momento</div>
+    </div>
 
     <!-- ── Participants ── -->
     <h2 class="h4 mt-4">Participantes</h2>
@@ -164,6 +178,15 @@
           first.scrollIntoView({ behavior: 'smooth', block: 'center' });
           first.focus();
         }
+      } else {
+        document.getElementById('loadingOverlay').classList.add('active');
+      }
+    });
+
+    // Hide overlay if user navigates back (bfcache restore)
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) {
+        document.getElementById('loadingOverlay').classList.remove('active');
       }
     });
 
