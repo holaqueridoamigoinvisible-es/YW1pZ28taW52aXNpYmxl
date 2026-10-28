@@ -118,9 +118,9 @@ public class EmailService {
     private boolean sendEmail(String accessToken, String fromAddr, String fromName,
                                String to, String subject, String text) {
         try {
-            String mime = "From: " + fromName + " <" + fromAddr + ">\r\n"
+            String mime = "From: " + mimeEncodeHeader(fromName) + " <" + fromAddr + ">\r\n"
                     + "To: " + to + "\r\n"
-                    + "Subject: " + subject + "\r\n"
+                    + "Subject: " + mimeEncodeHeader(subject) + "\r\n"
                     + "Content-Type: text/plain; charset=UTF-8\r\n"
                     + "\r\n"
                     + text;
@@ -165,6 +165,22 @@ public class EmailService {
 
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Encodes a MIME header value that may contain non-ASCII characters
+     * using RFC 2047 Base64 encoding: =?UTF-8?B?<base64>?=
+     * Pure ASCII values are returned as-is.
+     */
+    private static String mimeEncodeHeader(String value) {
+        for (char c : value.toCharArray()) {
+            if (c > 127) {
+                return "=?UTF-8?B?"
+                        + Base64.getEncoder().encodeToString(value.getBytes(StandardCharsets.UTF_8))
+                        + "?=";
+            }
+        }
+        return value;
     }
 
     /** Returns true if the email's domain has at least one MX record. */
