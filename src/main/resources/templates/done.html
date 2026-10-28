@@ -25,13 +25,13 @@
   <h1 class="mb-4 text-center">✅ ¡Sorteo realizado!</h1>
 
   <!-- All emails sent OK -->
-  <div th:if="${failed == 0}" class="card-done shadow-sm">
-    <div class="numero" th:text="${sent}">0</div>
+  <div th:if="${failed == null or failed == 0}" class="card-done shadow-sm">
+    <div class="numero" th:text="${sent != null ? sent : 0}">0</div>
     <p class="mt-2 mb-0 fs-5">emails enviados correctamente.</p>
   </div>
 
   <!-- Some or all failed -->
-  <div th:if="${failed > 0}" class="card-done shadow-sm">
+  <div th:if="${failed != null and failed > 0}" class="card-done shadow-sm">
     <div th:if="${sent > 0}">
       <div class="numero" th:text="${sent}">0</div>
       <p class="mt-2 mb-3 fs-5">emails enviados correctamente.</p>
@@ -51,9 +51,16 @@
     <a href="/" class="btn btn-success">🔄 Nuevo sorteo</a>
   </div>
 
-  <p class="text-center text-muted small mt-4">
-    Para cualquier problema contacta con el servicio técnico:
-    <a th:href="'mailto:' + ${supportEmail}" th:text="${supportEmail}"></a>
+  <p class="text-center text-muted small mt-3">
+    Identificador del sorteo: <code th:text="'#' + ${drawId}">#—</code>
+  </p>
+
+  <p class="text-center text-muted small mt-1">
+    ¿No has recibido tu email? Contacta con nosotros en
+    <a th:href="'mailto:' + ${supportEmail} + '?subject=Sorteo+%23' + ${drawId}"
+       th:text="${supportEmail}"></a> indicando el identificador del sorteo 👆
+    <br/>
+    ¿Te ha sido útil? Pregúntanos como puedes invitarnos a un café ☕
   </p>
 </body>
 </html>

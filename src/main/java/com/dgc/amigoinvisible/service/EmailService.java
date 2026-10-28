@@ -16,7 +16,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.UUID;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.InitialDirContext;
 
 @Slf4j
 @Service
@@ -45,7 +49,8 @@ public class EmailService {
     }
 
     public EmailSendResult sendAssignmentEmails(List<Assignment> assignments) {
-        log.info("EmailService: started, {} assignments", assignments.size());
+        String drawId = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+        log.info("EmailService: started draw={}, {} assignments", drawId, assignments.size());
         try {
             String accessToken = getAccessToken();
             log.info("EmailService: access token obtained");
@@ -61,7 +66,11 @@ public class EmailService {
                         + "Tu amigo invisible es " + a.receiver().name() + "!\n\n"
                         + "Mucha suerte con el regalo!\n\nAmigo Invisible App";
 
-                if (sendEmail(accessToken, from, fromName, a.sender().email(),
+                if (!domainHasMx(a.sender().email())) {
+                    log.error("EmailService: domain has no MX records, skipping {}", maskEmail(a.sender().email()));
+                    failedEmails.add(maskEmail(a.sender().email()));
+                    failed++;
+                } else if (sendEmail(accessToken, from, fromName, a.sender().email(),
                         "Amigo Invisible - Tu asignacion", body)) {
                     log.info("EmailService: sent OK to {}", maskEmail(a.sender().email()));
                     sent++;
@@ -71,15 +80,15 @@ public class EmailService {
                     failed++;
                 }
             }
-            log.info("EmailService: done - sent={}, failed={}", sent, failed);
-            sendAdminSummary(accessToken, from, fromName, adminEmail, assignments, sent, failed);
-            return new EmailSendResult(sent, failed, failedEmails);
+            log.info("EmailService: done draw={} - sent={}, failed={}", drawId, sent, failed);
+            sendAdminSummary(accessToken, from, fromName, adminEmail, assignments, sent, failed, drawId);
+            return new EmailSendResult(drawId, sent, failed, failedEmails);
         } catch (Exception e) {
-            log.error("EmailService: error", e);
+            log.error("EmailService: error draw={}", drawId, e);
             List<String> allFailed = assignments.stream()
                     .map(a -> maskEmail(a.sender().email()))
                     .toList();
-            return new EmailSendResult(0, assignments.size(), allFailed);
+            return new EmailSendResult(drawId, 0, assignments.size(), allFailed);
         }
     }
 
@@ -137,8 +146,9 @@ public class EmailService {
 
     private void sendAdminSummary(String accessToken, String from, String fromName,
                                    String adminEmail, List<Assignment> assignments,
-                                   int sent, int failed) {
+                                   int sent, int failed, String drawId) {
         StringBuilder body = new StringBuilder();
+        body.append("ID sorteo: ").append(drawId).append("\n");
         body.append("Sorteo realizado el ").append(LocalDateTime.now().format(FORMATTER)).append("\n");
         body.append("Participantes: ").append(assignments.size()).append("\n");
         body.append("Emails enviados: ").append(sent);
@@ -149,12 +159,27 @@ public class EmailService {
                 .append(a.receiver().name()).append("\n"));
 
         sendEmail(accessToken, from, fromName, adminEmail,
-                "[Amigo Invisible] Sorteo - " + LocalDateTime.now().format(FORMATTER),
+                "[Amigo Invisible] Sorteo #" + drawId + " - " + LocalDateTime.now().format(FORMATTER),
                 body.toString());
     }
 
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
+    }
+
+    /** Returns true if the email's domain has at least one MX record. */
+    private static boolean domainHasMx(String email) {
+        try {
+            String domain = email.substring(email.indexOf('@') + 1);
+            Hashtable<String, String> env = new Hashtable<>();
+            env.put("java.naming.factory.initial", "com.sun.jndi.dns.DnsContextFactory");
+            Attributes attrs = new InitialDirContext(env)
+                    .getAttributes(domain, new String[]{"MX"});
+            return attrs.get("MX") != null;
+        } catch (Exception e) {
+            log.warn("EmailService: MX lookup failed for {}: {}", email, e.getMessage());
+            return false;
+        }
     }
 
     /** Returns the first 2 chars of the local part + *** + @domain. e.g. mario.gomez@gmail.com → ma***@gmail.com */

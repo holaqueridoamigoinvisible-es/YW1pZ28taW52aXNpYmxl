@@ -95,6 +95,7 @@ public class DrawController {
             model.addAttribute("sent",         result.sent());
             model.addAttribute("failed",       result.failed());
             model.addAttribute("failedEmails", result.failedEmails());
+            model.addAttribute("drawId",       result.drawId());
             model.addAttribute("supportEmail", amigoProperties.getMail().getFrom());
             return "done";
         } catch (IllegalStateException ex) {
