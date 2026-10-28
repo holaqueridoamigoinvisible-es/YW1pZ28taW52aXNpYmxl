@@ -63,15 +63,15 @@ public class EmailService {
             List<String> failedEmails = new ArrayList<>();
             for (Assignment a : assignments) {
                 String body = "Hola " + a.sender().name() + ",\n\n"
-                        + "Tu amigo invisible es " + a.receiver().name() + "!\n\n"
-                        + "Mucha suerte con el regalo!\n\nAmigo Invisible App";
+                        + "¡Tu amigo invisible es " + a.receiver().name() + "!\n\n"
+                        + "¡Mucha suerte con el regalo!\n\nAmigo Invisible App";
 
                 if (!domainHasMx(a.sender().email())) {
                     log.error("EmailService: domain has no MX records, skipping {}", maskEmail(a.sender().email()));
                     failedEmails.add(maskEmail(a.sender().email()));
                     failed++;
                 } else if (sendEmail(accessToken, from, fromName, a.sender().email(),
-                        "Amigo Invisible · Tu asignacion  (id. " + drawId + ")", body)) {
+                        "Amigo invisible - Tu asignación  (id. " + drawId + ")", body)) {
                     log.info("EmailService: sent OK to {}", maskEmail(a.sender().email()));
                     sent++;
                 } else {
