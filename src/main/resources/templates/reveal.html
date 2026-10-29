@@ -30,6 +30,18 @@
     <p class="mt-2 mb-0 fs-5">¡Es la persona a la que tienes que regalar! 🎅</p>
   </div>
 
+  <!-- Reminder button -->
+  <div th:if="${role == 'SANTA'}" class="text-center mt-3">
+    <form th:action="@{/reveal/{t}/reminder(t=${token})}" method="post">
+      <button type="submit" class="btn btn-outline-secondary btn-sm">
+        📩 Enviar recordatorio al receptor
+      </button>
+    </form>
+    <div th:if="${reminded}" class="alert alert-success mt-2 small py-1">
+      ✅ Recordatorio enviado.
+    </div>
+  </div>
+
   <!-- ── Recipient greeting (RECIPIENT only) ── -->
   <div th:if="${role == 'RECIPIENT'}" class="text-center mb-4">
     <h2>🎁 ¡Hola, <span th:text="${recipientName}">Nombre</span>!</h2>

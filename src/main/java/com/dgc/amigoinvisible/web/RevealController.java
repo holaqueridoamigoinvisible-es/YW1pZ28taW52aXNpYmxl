@@ -1,6 +1,8 @@
 package com.dgc.amigoinvisible.web;
 
+import com.dgc.amigoinvisible.config.AmigoProperties;
 import com.dgc.amigoinvisible.service.ChatService;
+import com.dgc.amigoinvisible.service.EmailService;
 import com.dgc.amigoinvisible.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +31,13 @@ public class RevealController {
 
     private final TokenService    tokenService;
     private final ChatService     chatService;
+    private final EmailService    emailService;
+    private final AmigoProperties amigoProperties;
 
     /** Decodes the token and renders the reveal page (role-aware). */
     @GetMapping("/{token}")
     public String reveal(@PathVariable String token,
+                          @RequestParam(required = false) Boolean reminded,
                           Model model) {
         return tokenService.decode(token)
                 .map(data -> {
@@ -40,6 +45,7 @@ public class RevealController {
                     model.addAttribute("role",     data.role());
                     model.addAttribute("token",    token);
                     model.addAttribute("messages", chatService.getMessages(roomId));
+                    model.addAttribute("reminded", Boolean.TRUE.equals(reminded));
 
                     if ("RECIPIENT".equals(data.role())) {
                         model.addAttribute("recipientName", data.receiverName());
@@ -53,6 +59,26 @@ public class RevealController {
                     log.warn("RevealController: invalid or expired token, redirecting to /");
                     return "redirect:/";
                 });
+    }
+
+    /** Sends a chat reminder email to the receiver and redirects back with reminded=true. */
+    @PostMapping("/{token}/reminder")
+    public String sendReminder(@PathVariable String token) {
+        return tokenService.decode(token)
+                .map(data -> {
+                    if (!"SANTA".equals(data.role())) {
+                        return "redirect:/";
+                    }
+                    String recipientToken = tokenService.createRecipientToken(
+                            data.senderName(), data.senderEmail(),
+                            data.receiverName(), data.receiverEmail(),
+                            data.drawId());
+                    String chatUrl = amigoProperties.getApp().getBaseUrl()
+                            + "/reveal/" + recipientToken;
+                    emailService.sendChatReminder(data.receiverEmail(), data.receiverName(), chatUrl);
+                    return "redirect:/reveal/" + token + "?reminded=true";
+                })
+                .orElse("redirect:/");
     }
 
     /** Returns the chat messages for a room as JSON (polled every 5 s by the client). */

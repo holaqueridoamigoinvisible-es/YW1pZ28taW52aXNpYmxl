@@ -128,6 +128,31 @@ public class EmailService {
         }
     }
 
+    /**
+     * Sends a reminder email to the receiver, inviting them to join the anonymous chat.
+     */
+    public void sendChatReminder(String recipientEmail, String recipientName, String chatUrl) {
+        try {
+            String accessToken = getAccessToken();
+            String from     = amigoProperties.getMail().getFrom();
+            String fromName = amigoProperties.getMail().getFromName();
+            String subject  = "Amigo invisible · ¡Tienes un mensaje esperándote! 💬";
+            String body     = "Hola " + recipientName + ",\n\n"
+                    + "Tu amigo invisible quiere conocerte mejor y te está esperando en el chat.\n\n"
+                    + "¡Entra y cuéntale qué te gustaría recibir!\n\n"
+                    + chatUrl + "\n\n"
+                    + "Amigo Invisible App";
+            boolean ok = sendEmail(accessToken, from, fromName, recipientEmail, subject, body);
+            if (ok) {
+                log.info("EmailService: chat reminder sent to {}", maskEmail(recipientEmail));
+            } else {
+                log.error("EmailService: chat reminder FAILED to {}", maskEmail(recipientEmail));
+            }
+        } catch (Exception e) {
+            log.error("EmailService: sendChatReminder error for {}: {}", maskEmail(recipientEmail), e.getMessage());
+        }
+    }
+
     private String getAccessToken() throws Exception {
         String body = "client_id="     + enc(clientId)
                 + "&client_secret=" + enc(clientSecret)
