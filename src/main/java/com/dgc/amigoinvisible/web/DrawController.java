@@ -87,6 +87,19 @@ public class DrawController {
             return "index";
         }
 
+        // Validate no duplicate emails (case-insensitive)
+        List<String> emails = persons.stream()
+                .map(p -> p.email().toLowerCase())
+                .collect(Collectors.toList());
+        long distinctCount = emails.stream().distinct().count();
+        if (distinctCount < emails.size()) {
+            log.warn("Duplicate emails found among participants");
+            model.addAttribute("form", form);
+            model.addAttribute("title", "Amigo Invisible");
+            model.addAttribute("error", "Los participantes no pueden tener el mismo email.");
+            return "index";
+        }
+
         try {
             List<Assignment> assignments = derangementService.draw(persons, exclusions);
             log.info("Draw completed - {} assignments, sending emails", assignments.size());
