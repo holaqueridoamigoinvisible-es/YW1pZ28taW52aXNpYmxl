@@ -48,12 +48,10 @@
     <p class="text-muted">Alguien está preparando un regalo para ti. ¡Chatea de forma anónima!</p>
   </div>
 
-  <!-- ── Chat section (RECIPIENT only) ── -->
-  <div th:if="${role == 'RECIPIENT'}" class="mt-4" style="max-width:500px;margin:0 auto;">
-    <h5 th:if="${role == 'SANTA'}">
-      💬 Chat anónimo con <span th:text="${receiverName}"></span>
-    </h5>
-    <h5 th:if="${role == 'RECIPIENT'}">💬 Chat anónimo con tu amigo invisible</h5>
+  <!-- ── Chat section (SANTA and RECIPIENT) ── -->
+  <div class="mt-4" style="max-width:500px;margin:0 auto;">
+    <h5 th:if="${role == 'SANTA'}">💬 Chat con <span th:text="${receiverName}"></span></h5>
+    <h5 th:unless="${role == 'SANTA'}">💬 Chat con tu amigo invisible</h5>
 
     <!-- Message list (server-side initial render; JS takes over for live updates) -->
     <div id="chat-messages"
@@ -92,7 +90,7 @@
     <a href="/" class="btn btn-outline-secondary">🏠 Inicio</a>
   </div>
 
-  <script th:if="${role == 'RECIPIENT'}" th:inline="javascript">
+  <script th:inline="javascript">
     const TOKEN = /*[[${token}]]*/ '';
     const VIEWER_ROLE = /*[[${role}]]*/ 'SANTA';
 
