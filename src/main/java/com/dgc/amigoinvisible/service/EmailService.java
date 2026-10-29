@@ -16,8 +16,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.InitialDirContext;
@@ -62,52 +64,56 @@ public class EmailService {
             String fromName   = amigoProperties.getMail().getFromName();
             String adminEmail = from; // resumen va a la misma cuenta de envío
 
-            int sent = 0, failed = 0;
-            List<String> failedEmails = new ArrayList<>();
+            // Pass 1: generate all santa tokens (keyed by sender email)
+            Map<String, String> santaTokens = new HashMap<>();
             for (Assignment a : assignments) {
                 String token = tokenService.createSantaToken(
                         a.sender().name(), a.sender().email(),
                         a.receiver().name(), a.receiver().email(),
                         drawId);
-                String revealLink = amigoProperties.getApp().getBaseUrl() + "/reveal/" + token;
-                String body = "Hola " + a.sender().name() + ",\n\n"
-                        + "¡Ya tienes asignado a tu amigo invisible!\n\n"
-                        + "Haz clic en el siguiente enlace para descubrir a quién tienes que regalar:\n\n"
-                        + revealLink + "\n\n"
-                        + "En esa página también podrás compartir tu lista de deseos para que tu amigo invisible sepa qué regalarte.\n\n"
-                        + "¡Mucha suerte!\n\nAmigo Invisible App";
+                santaTokens.put(a.sender().email(), token);
+            }
 
-                if (!domainHasMx(a.sender().email())) {
-                    log.error("EmailService: domain has no MX records, skipping {}", maskEmail(a.sender().email()));
-                    failedEmails.add(maskEmail(a.sender().email()));
-                    failed++;
-                } else if (sendEmail(accessToken, from, fromName, a.sender().email(),
-                        "Amigo invisible - Tu asignación  (id. " + drawId + ")", body)) {
-                    log.info("EmailService: sent OK to {}", maskEmail(a.sender().email()));
-                    sent++;
-                } else {
-                    log.error("EmailService: FAILED to {}", maskEmail(a.sender().email()));
-                    failedEmails.add(maskEmail(a.sender().email()));
-                    failed++;
-                }
-
-                // Send recipient chat email — no MX check (only the sender's domain was verified above)
-                String recipientToken = tokenService.createRecipientToken(
+            // Pass 2: generate all recipient tokens (keyed by receiver email)
+            Map<String, String> recipientTokens = new HashMap<>();
+            for (Assignment a : assignments) {
+                String token = tokenService.createRecipientToken(
                         a.sender().name(), a.sender().email(),
                         a.receiver().name(), a.receiver().email(),
                         drawId);
-                String recipientLink = amigoProperties.getApp().getBaseUrl() + "/reveal/" + recipientToken;
-                String recipientBody = "Hola " + a.receiver().name() + ",\n\n"
-                        + "Alguien está preparando un regalo para ti 🎁\n"
-                        + "Tu amigo invisible quiere conocerte un poco mejor.\n\n"
-                        + "Puedes chatear con él de forma anónima aquí:\n\n"
+                recipientTokens.put(a.receiver().email(), token);
+            }
+
+            int sent = 0, failed = 0;
+            List<String> failedEmails = new ArrayList<>();
+            String baseUrl = amigoProperties.getApp().getBaseUrl();
+
+            for (Assignment a : assignments) {
+                String senderEmail   = a.sender().email();
+                String santaLink     = baseUrl + "/reveal/" + santaTokens.get(senderEmail);
+                String recipientLink = baseUrl + "/reveal/" + recipientTokens.get(senderEmail);
+
+                String body = "Hola " + a.sender().name() + ",\n\n"
+                        + "Tu amigo invisible ya está en marcha 🎅\n\n"
+                        + "🎁 Descubre a quién tienes que regalar:\n"
+                        + santaLink + "\n\n"
+                        + "💬 Chatea con tu amigo invisible (alguien tiene un regalo para ti):\n"
                         + recipientLink + "\n\n"
-                        + "¡Que empiece la intriga!\n\nAmigo Invisible App";
-                String recipientSubject = "Amigo invisible · Alguien te tiene 🎁 (id. " + drawId + ")";
-                if (!sendEmail(accessToken, from, fromName, a.receiver().email(),
-                               recipientSubject, recipientBody)) {
-                    log.warn("EmailService: recipient chat email FAILED to {}",
-                             maskEmail(a.receiver().email()));
+                        + "¡Mucha suerte!\n\nAmigo Invisible App";
+
+                String subject = "Amigo invisible · Tu asignación (id. " + drawId + ")";
+
+                if (!domainHasMx(senderEmail)) {
+                    log.error("EmailService: domain has no MX records, skipping {}", maskEmail(senderEmail));
+                    failedEmails.add(maskEmail(senderEmail));
+                    failed++;
+                } else if (sendEmail(accessToken, from, fromName, senderEmail, subject, body)) {
+                    log.info("EmailService: sent OK to {}", maskEmail(senderEmail));
+                    sent++;
+                } else {
+                    log.error("EmailService: FAILED to {}", maskEmail(senderEmail));
+                    failedEmails.add(maskEmail(senderEmail));
+                    failed++;
                 }
             }
             log.info("EmailService: done draw={} - sent={}, failed={}", drawId, sent, failed);
