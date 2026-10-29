@@ -180,6 +180,37 @@ public class EmailService {
         }
     }
 
+    /**
+     * Sends an email to the santa notifying them that the recipient has saved their wish list.
+     * Gets a fresh access token internally; safe to call from any thread.
+     */
+    public void sendWishListNotification(String santaEmail, String recipientName, String wishes) {
+        try {
+            String accessToken = getAccessToken();
+            String from     = amigoProperties.getMail().getFrom();
+            String fromName = amigoProperties.getMail().getFromName();
+
+            String subject = "Amigo invisible · " + recipientName
+                    + " ha compartido su lista de deseos 🎁";
+            String body = "Hola,\n\n"
+                    + "¡Tu amigo invisible ha compartido su lista de deseos!\n\n"
+                    + recipientName + " le gustaría recibir:\n"
+                    + wishes + "\n\n"
+                    + "Consulta tu enlace de asignación para más detalles.\n\n"
+                    + "Amigo Invisible App";
+
+            boolean ok = sendEmail(accessToken, from, fromName, santaEmail, subject, body);
+            if (ok) {
+                log.info("EmailService: wish list notification sent to {}", maskEmail(santaEmail));
+            } else {
+                log.error("EmailService: failed to send wish list notification to {}", maskEmail(santaEmail));
+            }
+        } catch (Exception e) {
+            log.error("EmailService: error sending wish list notification to {}: {}",
+                      maskEmail(santaEmail), e.getMessage());
+        }
+    }
+
     private void sendAdminSummary(String accessToken, String from, String fromName,
                                    String adminEmail, List<Assignment> assignments,
                                    int sent, int failed, String drawId) {

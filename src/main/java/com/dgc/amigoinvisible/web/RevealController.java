@@ -1,6 +1,7 @@
 package com.dgc.amigoinvisible.web;
 
 import com.dgc.amigoinvisible.service.ChatService;
+import com.dgc.amigoinvisible.service.EmailService;
 import com.dgc.amigoinvisible.service.TokenService;
 import com.dgc.amigoinvisible.service.WishListService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class RevealController {
     private final TokenService    tokenService;
     private final WishListService wishListService;
     private final ChatService     chatService;
+    private final EmailService    emailService;
 
     /** Decodes the token and renders the reveal page (role-aware). */
     @GetMapping("/{token}")
@@ -45,7 +47,10 @@ public class RevealController {
                     model.addAttribute("messages", chatService.getMessages(roomId));
 
                     if ("RECIPIENT".equals(data.role())) {
+                        String myWishes = wishListService.get(data.receiverEmail()).orElse(null);
                         model.addAttribute("recipientName", data.receiverName());
+                        model.addAttribute("myWishes",      myWishes);
+                        model.addAttribute("saved",         saved);
                     } else {
                         // SANTA (or legacy tokens defaulted to SANTA)
                         String receiverWishes = wishListService.get(data.receiverEmail()).orElse(null);
@@ -84,15 +89,25 @@ public class RevealController {
         return ResponseEntity.<Void>ok().build();
     }
 
-    /** Saves the sender's wish list and redirects back to the reveal page. */
+    /** Saves the recipient's wish list and notifies the santa, or saves the sender's wishes (legacy SANTA path). */
     @PostMapping("/{token}/wishes")
     public String saveWishes(@PathVariable String token,
                               @RequestParam String wishes) {
         return tokenService.decode(token)
                 .map(data -> {
-                    wishListService.save(data.senderEmail(), wishes);
-                    log.info("RevealController: wish list saved for {}",
-                             data.senderEmail().replaceAll("(?<=.{2}).(?=.*@)", "*"));
+                    if ("RECIPIENT".equals(data.role())) {
+                        wishListService.save(data.receiverEmail(), wishes);
+                        log.info("RevealController: wish list saved for recipient {}",
+                                 data.receiverEmail().replaceAll("(?<=.{2}).(?=.*@)", "*"));
+                        emailService.sendWishListNotification(
+                                data.senderEmail(),
+                                data.receiverName(),
+                                wishes);
+                    } else {
+                        wishListService.save(data.senderEmail(), wishes);
+                        log.info("RevealController: wish list saved for {}",
+                                 data.senderEmail().replaceAll("(?<=.{2}).(?=.*@)", "*"));
+                    }
                     return "redirect:/reveal/" + token + "?saved=true";
                 })
                 .orElseGet(() -> {
