@@ -30,19 +30,6 @@
     <p class="mt-2 mb-0 fs-5">¡Es la persona a la que tienes que regalar! 🎅</p>
   </div>
 
-  <!-- ── Receiver wish list (SANTA only) ── -->
-  <div th:if="${role == 'SANTA'}" class="mt-4" style="max-width:500px;margin:0 auto;">
-    <div th:if="${receiverWishes != null}" class="card">
-      <div class="card-body">
-        <h5 class="card-title">🎁 Lista de deseos de <span th:text="${receiverName}"></span></h5>
-        <p class="card-text" th:text="${receiverWishes}"></p>
-      </div>
-    </div>
-    <p th:if="${receiverWishes == null}" class="text-muted fst-italic">
-      Aún no ha compartido su lista de deseos.
-    </p>
-  </div>
-
   <!-- ── Recipient greeting (RECIPIENT only) ── -->
   <div th:if="${role == 'RECIPIENT'}" class="text-center mb-4">
     <h2>🎁 ¡Hola, <span th:text="${recipientName}">Nombre</span>!</h2>
@@ -87,29 +74,6 @@
       <button onclick="sendChatMessage()"
               class="btn btn-success align-self-end">Enviar</button>
     </div>
-  </div>
-
-  <!-- ── Save confirmation alert (RECIPIENT only) ── -->
-  <div th:if="${role == 'RECIPIENT' and saved != null and saved}"
-       class="alert alert-success mt-4"
-       style="max-width:500px;margin:1.5rem auto 0;">
-    ✅ ¡Tu lista de deseos ha sido guardada! Tu amigo invisible recibirá una notificación.
-  </div>
-
-  <!-- ── My wish list form (RECIPIENT only) ── -->
-  <div th:if="${role == 'RECIPIENT'}" class="mt-4" style="max-width:500px;margin:0 auto;">
-    <h5>📝 ¿Qué te gustaría recibir? Cuéntaselo a tu amigo invisible</h5>
-    <p class="text-muted small">Escribe tu lista de deseos y tu amigo invisible recibirá un aviso.</p>
-    <form th:action="@{/reveal/{t}/wishes(t=${token})}" method="post">
-      <div class="mb-3">
-        <textarea name="wishes"
-                  rows="4"
-                  class="form-control"
-                  placeholder="Ej: Un libro de ciencia ficción, unos guantes azules..."
-                  th:text="${myWishes != null ? myWishes : ''}"></textarea>
-      </div>
-      <button type="submit" class="btn btn-success">💾 Guardar lista de deseos</button>
-    </form>
   </div>
 
   <div class="text-center mt-5">
