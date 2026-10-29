@@ -16,10 +16,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.InitialDirContext;
@@ -64,34 +62,39 @@ public class EmailService {
             String fromName   = amigoProperties.getMail().getFromName();
             String adminEmail = from; // resumen va a la misma cuenta de envío
 
-            // Pass 1: generate all santa tokens (keyed by sender email)
-            Map<String, String> santaTokens = new HashMap<>();
+            // Pass 1 (by index): generate santa and recipient tokens for each assignment
+            List<String> santaTokenList     = new ArrayList<>();
+            List<String> recipientTokenList = new ArrayList<>();
             for (Assignment a : assignments) {
-                String token = tokenService.createSantaToken(
+                santaTokenList.add(tokenService.createSantaToken(
                         a.sender().name(), a.sender().email(),
                         a.receiver().name(), a.receiver().email(),
-                        drawId);
-                santaTokens.put(a.sender().email(), token);
-            }
-
-            // Pass 2: generate all recipient tokens (keyed by receiver email)
-            Map<String, String> recipientTokens = new HashMap<>();
-            for (Assignment a : assignments) {
-                String token = tokenService.createRecipientToken(
+                        drawId));
+                recipientTokenList.add(tokenService.createRecipientToken(
                         a.sender().name(), a.sender().email(),
                         a.receiver().name(), a.receiver().email(),
-                        drawId);
-                recipientTokens.put(a.receiver().email(), token);
+                        drawId));
             }
 
             int sent = 0, failed = 0;
             List<String> failedEmails = new ArrayList<>();
             String baseUrl = amigoProperties.getApp().getBaseUrl();
 
-            for (Assignment a : assignments) {
-                String senderEmail   = a.sender().email();
-                String santaLink     = baseUrl + "/reveal/" + santaTokens.get(senderEmail);
-                String recipientLink = baseUrl + "/reveal/" + recipientTokens.get(senderEmail);
+            for (int i = 0; i < assignments.size(); i++) {
+                Assignment a = assignments.get(i);
+                // Find j where this sender is the receiver (i.e. someone is giving to a.sender())
+                // Person.equals() compares both name and email — safe for duplicate-email participants
+                int j = -1;
+                for (int k = 0; k < assignments.size(); k++) {
+                    if (assignments.get(k).receiver().equals(a.sender())) {
+                        j = k;
+                        break;
+                    }
+                }
+                String santaLink     = baseUrl + "/reveal/" + santaTokenList.get(i);
+                String recipientLink = j >= 0
+                        ? baseUrl + "/reveal/" + recipientTokenList.get(j)
+                        : "";
 
                 String body = "Hola " + a.sender().name() + ",\n\n"
                         + "Tu amigo invisible ya está en marcha 🎅\n\n"
@@ -103,6 +106,7 @@ public class EmailService {
 
                 String subject = "Amigo invisible · Tu asignación (id. " + drawId + ")";
 
+                String senderEmail = a.sender().email();
                 if (!domainHasMx(senderEmail)) {
                     log.error("EmailService: domain has no MX records, skipping {}", maskEmail(senderEmail));
                     failedEmails.add(maskEmail(senderEmail));
