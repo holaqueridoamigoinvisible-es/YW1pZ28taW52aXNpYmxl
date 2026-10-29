@@ -17,9 +17,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.InitialDirContext;
@@ -63,6 +65,21 @@ public class EmailService {
             String from       = amigoProperties.getMail().getFrom();
             String fromName   = amigoProperties.getMail().getFromName();
             String adminEmail = from; // resumen va a la misma cuenta de envío
+
+            // Guard: each participant must have a unique email; duplicate emails cause
+            // HashMap key collisions in the token maps, making all tokens overwrite each
+            // other so that every email ends up with the same (last) token.
+            Set<String> seenEmails = new HashSet<>();
+            for (Assignment a : assignments) {
+                if (!seenEmails.add(a.sender().email().toLowerCase())) {
+                    log.error("EmailService: duplicate participant email {} — aborting draw {}",
+                              maskEmail(a.sender().email()), drawId);
+                    List<String> allFailed = assignments.stream()
+                            .map(x -> maskEmail(x.sender().email()))
+                            .toList();
+                    return new EmailSendResult(drawId, 0, assignments.size(), allFailed);
+                }
+            }
 
             // Pass 1: generate all santa tokens (keyed by sender email)
             Map<String, String> santaTokens = new HashMap<>();
