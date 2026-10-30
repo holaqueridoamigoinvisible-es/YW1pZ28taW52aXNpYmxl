@@ -98,18 +98,15 @@ public class EmailService {
 
                 String body = "Hola " + a.sender().name() + ",\n\n"
                         + "Tu amigo invisible ya está en marcha 🎅\n\n"
-                        + "─────────────────────────────\n"
                         + "🎁 TU MISIÓN\n\n"
                         + "Haz clic para descubrir a quién tienes que regalar este año.\n"
                         + "Escríbele para que te dé pistas sobre qué le gustaría recibir:\n\n"
-                        + santaLink + "\n\n"
-                        + "─────────────────────────────\n"
+                        + santaLink + "\n\n\n"
                         + "💬 TU SORPRESA\n\n"
                         + "Alguien ya tiene un regalo para ti.\n"
                         + "Chatea con tu amigo invisible de forma anónima\n"
                         + "y dale pistas sobre qué te gustaría recibir:\n\n"
-                        + recipientLink + "\n\n"
-                        + "─────────────────────────────\n\n"
+                        + recipientLink + "\n\n\n"
                         + "¡Mucha suerte!\n\nAmigo Invisible App";
 
                 String subject = "Amigo invisible · Tu asignación (id. " + drawId + ")";
