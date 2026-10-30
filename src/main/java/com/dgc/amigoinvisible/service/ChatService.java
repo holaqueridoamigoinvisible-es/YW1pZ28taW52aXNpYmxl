@@ -80,7 +80,11 @@ public class ChatService {
                     .POST(HttpRequest.BodyPublishers.ofString(rpushBody))
                     .build();
             HttpResponse<String> rpushRes = http.send(rpushReq, HttpResponse.BodyHandlers.ofString());
-            log.debug("ChatService: rpush status={}", rpushRes.statusCode());
+            if (rpushRes.statusCode() != 200) {
+                log.warn("ChatService: rpush failed status={} body={}", rpushRes.statusCode(), rpushRes.body());
+            } else {
+                log.info("ChatService: message stored in room={}", roomId);
+            }
 
             // EXPIRE: POST {url}/expire/{key}/604800
             HttpRequest expireReq = HttpRequest.newBuilder()
@@ -90,7 +94,9 @@ public class ChatService {
                     .POST(HttpRequest.BodyPublishers.ofString("[]"))
                     .build();
             HttpResponse<String> expireRes = http.send(expireReq, HttpResponse.BodyHandlers.ofString());
-            log.debug("ChatService: expire status={}", expireRes.statusCode());
+            if (expireRes.statusCode() != 200) {
+                log.warn("ChatService: expire failed status={}", expireRes.statusCode());
+            }
         } catch (Exception e) {
             log.error("ChatService: error storing message in Redis for roomId={}: {}", roomId, e.getMessage());
         }
@@ -117,9 +123,10 @@ public class ChatService {
             log.debug("ChatService: lrange status={}", res.statusCode());
 
             if (res.statusCode() != 200) {
-                log.warn("ChatService: lrange returned status={} for roomId={}", res.statusCode(), roomId);
+                log.warn("ChatService: lrange returned status={} body={} for roomId={}", res.statusCode(), res.body(), roomId);
                 return List.of();
             }
+            log.info("ChatService: lrange OK for room={} body={}", roomId, res.body());
 
             return parseMessages(res.body());
         } catch (Exception e) {
