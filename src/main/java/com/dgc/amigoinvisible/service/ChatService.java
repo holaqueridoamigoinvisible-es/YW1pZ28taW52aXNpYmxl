@@ -71,13 +71,11 @@ public class ChatService {
 
         String serialized = role + "|" + text.replace("|", " ") + "|" + Instant.now().getEpochSecond();
         try {
-            // RPUSH: POST {url}/rpush/{key}  body: ["value"]
-            String rpushBody = "[\"" + escapeJson(serialized) + "\"]";
+            // RPUSH: POST {url}/rpush/{key}/{value}  (value as path segment)
             HttpRequest rpushReq = HttpRequest.newBuilder()
-                    .uri(URI.create(redisUrl + "/rpush/" + encodeKey(roomId)))
+                    .uri(URI.create(redisUrl + "/rpush/" + encodeKey(roomId) + "/" + encodeKey(serialized)))
                     .header("Authorization", "Bearer " + redisToken)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(rpushBody))
+                    .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
             HttpResponse<String> rpushRes = http.send(rpushReq, HttpResponse.BodyHandlers.ofString());
             if (rpushRes.statusCode() != 200) {
@@ -86,12 +84,11 @@ public class ChatService {
                 log.info("ChatService: message stored in room={}", roomId);
             }
 
-            // EXPIRE: POST {url}/expire/{key}/604800
+            // EXPIRE: POST {url}/expire/{key}/{seconds}
             HttpRequest expireReq = HttpRequest.newBuilder()
                     .uri(URI.create(redisUrl + "/expire/" + encodeKey(roomId) + "/" + TTL_SECONDS))
                     .header("Authorization", "Bearer " + redisToken)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString("[]"))
+                    .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
             HttpResponse<String> expireRes = http.send(expireReq, HttpResponse.BodyHandlers.ofString());
             if (expireRes.statusCode() != 200) {
