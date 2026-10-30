@@ -33,14 +33,10 @@
     <a href="/" class="btn btn-success">🔄 Nuevo sorteo</a>
   </div>
 
-  <p class="text-center text-muted small mt-3">
-    Identificador del sorteo: <code th:text="'#' + ${drawId}">#—</code>
-  </p>
-
   <p class="text-center text-muted small mt-1">
     ¿No has recibido tu email? Contacta con nosotros en
     <a th:href="'mailto:' + ${supportEmail} + '?subject=Sorteo+%23' + ${drawId}"
-       th:text="${supportEmail}"></a> indicando el identificador del sorteo 👆
+       th:text="${supportEmail}"></a> indicando el identificador del sorteo👉 <code th:text="'#' + ${drawId}">#—</code>
     <br/>
     ¿Te ha sido útil? Pregúntanos como puedes invitarnos a un café ☕
   </p>
