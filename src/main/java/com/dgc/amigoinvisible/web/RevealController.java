@@ -51,6 +51,7 @@ public class RevealController {
                         model.addAttribute("recipientName", data.receiverName());
                     } else {
                         // SANTA (or legacy tokens defaulted to SANTA)
+                        model.addAttribute("senderName",   data.senderName());
                         model.addAttribute("receiverName", data.receiverName());
                     }
                     return "reveal";

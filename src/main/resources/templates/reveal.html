@@ -26,6 +26,7 @@
 
   <!-- ── Receiver card (SANTA only) ── -->
   <div th:if="${role == 'SANTA'}" class="receiver-card shadow-sm">
+    <p class="text-muted mb-1" th:text="${senderName + ', tu amigo invisible es...'}"></p>
     <div class="receiver-name" th:text="${receiverName}">Nombre</div>
     <p class="mt-2 mb-0 fs-5">¡Es la persona a la que tienes que regalar!</p>
   </div>
