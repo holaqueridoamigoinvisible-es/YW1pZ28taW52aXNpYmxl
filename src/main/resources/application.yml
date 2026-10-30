@@ -30,3 +30,8 @@ gmail:
 
 server:
   port: ${PORT:8080}
+
+upstash:
+  redis:
+    url: ${UPSTASH_REDIS_REST_URL:}
+    token: ${UPSTASH_REDIS_REST_TOKEN:}
