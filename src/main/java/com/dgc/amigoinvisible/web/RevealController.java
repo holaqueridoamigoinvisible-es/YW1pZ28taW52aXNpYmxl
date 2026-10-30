@@ -102,8 +102,9 @@ public class RevealController {
         return ResponseEntity.<Void>ok().build();
     }
 
-    /** RoomId shared by both tokens of a pair: drawId + ":" + santaEmail. */
+    /** RoomId shared by both tokens of a pair: drawId + ":" + santaEmail + ":" + receiverName. */
     private static String roomId(TokenService.AssignmentData data) {
-        return data.drawId() + ":" + data.senderEmail().toLowerCase().trim();
+        return data.drawId() + ":" + data.senderEmail().toLowerCase().trim()
+                + ":" + data.receiverName().trim();
     }
 }
